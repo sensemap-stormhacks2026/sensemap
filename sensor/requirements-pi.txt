@@ -1,0 +1,4 @@
+Adafruit-Blinka>=8.50
+adafruit-circuitpython-bh1750>=1.1
+adafruit-circuitpython-dht>=4.0
+adafruit-circuitpython-mcp3xxx>=1.4

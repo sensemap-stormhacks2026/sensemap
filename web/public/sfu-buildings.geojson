@@ -1,0 +1,54 @@
+{
+  "type": "FeatureCollection",
+  "attribution": "Approximate demo footprints based on SFU Facilities open mapping data",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": "aq-3000", "name": "Academic Quadrangle", "height": 22 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.92038, 49.27772], [-122.91904, 49.27772],
+          [-122.91904, 49.27869], [-122.92038, 49.27869],
+          [-122.92038, 49.27772]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "wac-bennett", "name": "W.A.C. Bennett Library", "height": 28 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.91873, 49.27887], [-122.91774, 49.27887],
+          [-122.91774, 49.27953], [-122.91873, 49.27953],
+          [-122.91873, 49.27887]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "asb-atrium", "name": "Applied Sciences Building", "height": 20 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.91540, 49.27775], [-122.91441, 49.27775],
+          [-122.91441, 49.27838], [-122.91540, 49.27838],
+          [-122.91540, 49.27775]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "sub-lounge", "name": "Student Union Building", "height": 24 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.92302, 49.27920], [-122.92202, 49.27920],
+          [-122.92202, 49.27985], [-122.92302, 49.27985],
+          [-122.92302, 49.27920]
+        ]]
+      }
+    }
+  ]
+}
