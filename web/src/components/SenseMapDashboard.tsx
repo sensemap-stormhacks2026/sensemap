@@ -6,16 +6,28 @@ import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
 import type { RoomsResponse } from "@/lib/types";
 
-type Filter = "all" | "quiet" | "cool" | "uncrowded" | "outlets" | "live";
+type Filter =
+  | "all"
+  | "quiet"
+  | "wellLit"
+  | "dim"
+  | "uncrowded"
+  | "outlets"
+  | "live";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All spaces" },
   { id: "quiet", label: "Quiet" },
-  { id: "cool", label: "Comfortable" },
+  { id: "wellLit", label: "Well-lit" },
+  { id: "dim", label: "Dimly lit" },
   { id: "uncrowded", label: "Uncrowded" },
   { id: "outlets", label: "Outlets" },
   { id: "live", label: "Live node" },
 ];
+
+function isLiveNode(room: RoomsResponse["rooms"][number]) {
+  return room.reading.source !== "simulated" && !room.reading.stale;
+}
 
 const ROOM_PREVIEW_COUNT = 4;
 
@@ -37,7 +49,7 @@ function statusText(metric: string, status: string) {
     return status === "low" ? "Quiet" : status === "moderate" ? "Moderate" : "Loud";
   }
   if (metric === "light") {
-    return status === "low" ? "Dim" : status === "moderate" ? "Balanced" : "Bright";
+    return status === "low" ? "Dimly lit" : status === "moderate" ? "Well-lit" : "Bright";
   }
   return status[0].toUpperCase() + status.slice(1);
 }
@@ -97,12 +109,16 @@ export default function SenseMapDashboard({
       rooms
         .filter((room) => {
           if (filter === "quiet") return room.reading.sound_status === "low";
-          if (filter === "cool") return room.reading.temperature_status === "moderate";
+          if (filter === "wellLit") {
+            return (
+              room.reading.light_status === "moderate" ||
+              room.reading.light_status === "high"
+            );
+          }
+          if (filter === "dim") return room.reading.light_status === "low";
           if (filter === "uncrowded") return room.reading.crowd_status === "low";
           if (filter === "outlets") return room.outlets;
-          if (filter === "live") {
-            return room.reading.source !== "simulated" && !room.reading.stale;
-          }
+          if (filter === "live") return isLiveNode(room);
           return true;
         })
         .map((room) => room.id),
@@ -119,9 +135,7 @@ export default function SenseMapDashboard({
     ? filteredRooms
     : filteredRooms.slice(0, ROOM_PREVIEW_COUNT);
   const hiddenCount = Math.max(0, filteredRooms.length - ROOM_PREVIEW_COUNT);
-  const activeNodes = rooms.filter(
-    (room) => room.reading.source !== "simulated" && !room.reading.stale,
-  ).length;
+  const activeNodes = rooms.filter(isLiveNode).length;
 
   const changeFilter = (value: Filter) => {
     setFilter(value);

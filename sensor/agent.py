@@ -422,6 +422,14 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
 
+    if not args.endpoint:
+        print(
+            "[sensemap] warning: SENSEMAP_ENDPOINT is empty — "
+            "readings will print locally but will not appear on the dashboard. "
+            "Example: export SENSEMAP_ENDPOINT=http://172.16.253.82:3001/api/readings",
+            flush=True,
+        )
+
     while running:
         reading = node.read()
         print(json.dumps(asdict(reading)))

@@ -50,7 +50,8 @@ export function classifyReading(reading: ReadingInput, room: Room): RoomReading 
     crowd_ratio: crowdRatio,
     density: reading.people_estimate / room.areaM2,
     suitability_score: score,
-    stale: Date.now() - new Date(reading.timestamp).getTime() > 15_000,
+    // Keep partial Pi uploads (e.g. estimated when DHT is down) visible longer in demos.
+    stale: Date.now() - new Date(reading.timestamp).getTime() > 45_000,
   };
 }
 
