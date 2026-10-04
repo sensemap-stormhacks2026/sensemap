@@ -127,6 +127,10 @@ export default function CampusMap({
       attributionControl: false,
     });
     mapRef.current = map;
+    const resizeMap = () => map.resize();
+    window.setTimeout(resizeMap, 250);
+    window.setTimeout(resizeMap, 1000);
+    window.addEventListener("resize", resizeMap);
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }),
       "bottom-right",
@@ -343,6 +347,7 @@ export default function CampusMap({
       if (styleReadyInterval !== undefined) {
         window.clearInterval(styleReadyInterval);
       }
+      window.removeEventListener("resize", resizeMap);
       map.remove();
       mapRef.current = null;
     };

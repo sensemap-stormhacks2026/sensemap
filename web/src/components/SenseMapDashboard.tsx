@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import CampusView from "./CampusView";
+import CampusMap from "./CampusMap";
 import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
 import type { RoomsResponse, RoomWithReading } from "@/lib/types";
@@ -35,6 +35,7 @@ function FilterBar({
       {FILTERS.map((item) => (
         <button
           key={item.id}
+          type="button"
           className={filter === item.id ? "active" : ""}
           onClick={() => onChange(item.id)}
         >
@@ -213,6 +214,9 @@ export default function SenseMapDashboard({
           <span className="updated-time">Updated {ageLabel(data.generated_at)}</span>
         </div>
       </header>
+      <div className="filter-toolbar">
+        <FilterBar filter={filter} onChange={setFilter} />
+      </div>
 
       <section className="workspace">
         <aside className="spaces-panel">
@@ -223,8 +227,6 @@ export default function SenseMapDashboard({
             </div>
             <span className="room-count">{visibleRoomIds.size}</span>
           </div>
-
-          <FilterBar filter={filter} onChange={setFilter} />
 
           <div className="room-list">
             {sortedRooms
@@ -279,10 +281,7 @@ export default function SenseMapDashboard({
               <span>Scroll to zoom</span>
             </div>
           </div>
-          <div className="map-filters">
-            <FilterBar filter={filter} onChange={setFilter} />
-          </div>
-          <CampusView
+          <CampusMap
             rooms={rooms}
             selectedId={selected?.id ?? ""}
             visibleRoomIds={visibleRoomIds}

@@ -137,10 +137,31 @@ button:focus-visible {
   padding-left: 15px;
 }
 
+.filter-toolbar {
+  background: #09130f;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 16px 10px;
+  position: sticky;
+  top: 74px;
+  z-index: 11;
+}
+
+.filter-toolbar .filters {
+  margin: 0;
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
+.filter-toolbar .filters button {
+  font-size: 11px;
+  min-height: 34px;
+  padding: 8px 12px;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: 330px minmax(420px, 1fr) 330px;
-  height: calc(100vh - 74px);
+  height: calc(100vh - 122px);
   min-height: 650px;
 }
 
@@ -1143,28 +1164,21 @@ button:focus-visible {
     height: auto;
   }
 
-  .spaces-panel {
-    border-bottom: 1px solid var(--line);
-    border-right: 0;
-    min-height: 0;
-  }
-
-  .spaces-panel .filters {
-    background: var(--panel);
-    margin-top: 10px;
-    position: sticky;
+  .filter-toolbar {
     top: 66px;
-    z-index: 8;
-  }
-
-  .map-filters {
-    display: block;
-    margin: 0 0 12px;
   }
 
   .map-panel {
     min-height: 620px;
+    order: 1;
     padding: 16px;
+  }
+
+  .spaces-panel {
+    border-bottom: 1px solid var(--line);
+    border-right: 0;
+    min-height: 0;
+    order: 2;
   }
 
   .detail-panel {
@@ -1172,6 +1186,7 @@ button:focus-visible {
     box-shadow: none;
     height: auto;
     max-width: none;
+    order: 3;
     position: static;
     width: 100%;
   }
