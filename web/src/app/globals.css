@@ -233,10 +233,10 @@ button:focus-visible {
 
 .room-list {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 7px;
-  min-height: 220px;
+  min-height: 0;
 }
 
 .room-card {
