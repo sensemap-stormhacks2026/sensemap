@@ -1,21 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import CampusView from "./CampusView";
 import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
 import type { RoomsResponse, RoomWithReading } from "@/lib/types";
 
-const CampusMap = dynamic(() => import("./CampusMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="campus-map-shell map-loading" aria-label="Loading campus map">
-      Loading campus map…
-    </div>
-  ),
-});
-
-type Filter = "all" | "quiet" | "uncrowded" | "outlets" | "live";
+type Filter = "all" | "quiet" | "cool" | "uncrowded" | "outlets" | "live";
 type Recommendation = {
   recommended_room: string;
   reason: string;
@@ -26,10 +17,33 @@ type Recommendation = {
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All spaces" },
   { id: "quiet", label: "Quiet" },
+  { id: "cool", label: "Comfortable" },
   { id: "uncrowded", label: "Uncrowded" },
   { id: "outlets", label: "Outlets" },
   { id: "live", label: "Live node" },
 ];
+
+function FilterBar({
+  filter,
+  onChange,
+}: {
+  filter: Filter;
+  onChange: (value: Filter) => void;
+}) {
+  return (
+    <div className="filters" aria-label="Filter study spaces">
+      {FILTERS.map((item) => (
+        <button
+          key={item.id}
+          className={filter === item.id ? "active" : ""}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function ageLabel(timestamp: string) {
   const seconds = Math.max(
@@ -152,6 +166,7 @@ export default function SenseMapDashboard({
       rooms
         .filter((room) => {
           if (filter === "quiet") return room.reading.sound_status === "low";
+          if (filter === "cool") return room.reading.temperature_status === "moderate";
           if (filter === "uncrowded") return room.reading.crowd_status === "low";
           if (filter === "outlets") return room.outlets;
           if (filter === "live") {
@@ -209,17 +224,7 @@ export default function SenseMapDashboard({
             <span className="room-count">{visibleRoomIds.size}</span>
           </div>
 
-          <div className="filters" aria-label="Filter study spaces">
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                className={filter === item.id ? "active" : ""}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <FilterBar filter={filter} onChange={setFilter} />
 
           <div className="room-list">
             {sortedRooms
@@ -274,7 +279,10 @@ export default function SenseMapDashboard({
               <span>Scroll to zoom</span>
             </div>
           </div>
-          <CampusMap
+          <div className="map-filters">
+            <FilterBar filter={filter} onChange={setFilter} />
+          </div>
+          <CampusView
             rooms={rooms}
             selectedId={selected?.id ?? ""}
             visibleRoomIds={visibleRoomIds}
