@@ -93,7 +93,8 @@ The Grove Base Hat supplies the ADC missing from the Raspberry Pi. It is detecte
 at I²C address `0x08` or `0x04`; override with `GROVE_ADC_ADDRESS=0x08` if needed.
 Use `SENSEMAP_SENSOR_PROFILE=grove`, `GROVE_LIGHT_CHANNEL=0`, and
 `GROVE_SOUND_CHANNEL=2` for the StormHacks node. If any sensor is absent, only
-that metric uses the simulator and the payload quality reflects the change.
+that metric uses the simulator and the payload quality reflects the change. Set
+`SENSEMAP_TEMPERATURE_MODE=simulated` when no temperature sensor is connected.
 
 ## Tiger Data
 

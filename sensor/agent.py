@@ -220,9 +220,15 @@ class SensorNode:
                         raise
             return MCP3008SoundReader(int(os.getenv("MCP3008_CHANNEL", "0")))
 
+        def temperature_reader() -> Reader:
+            mode = os.getenv("SENSEMAP_TEMPERATURE_MODE", "auto").lower()
+            if mode in ("simulated", "disabled", "off"):
+                raise RuntimeError("temperature sensor disabled; using simulator")
+            return DHT22Reader(os.getenv("DHT_PIN", "D4"))
+
         factories = {
             "light": light_reader,
-            "temperature": lambda: DHT22Reader(os.getenv("DHT_PIN", "D4")),
+            "temperature": temperature_reader,
             "sound": sound_reader,
         }
         fallbacks = {
