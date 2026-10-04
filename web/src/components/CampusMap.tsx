@@ -116,6 +116,7 @@ export default function CampusMap({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: "https://tiles.openfreemap.org/styles/dark",
