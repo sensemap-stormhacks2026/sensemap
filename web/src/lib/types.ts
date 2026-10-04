@@ -10,6 +10,8 @@ export interface ReadingInput {
   sound_level: number;
   temperature_c: number;
   people_estimate: number;
+  crowd_source: "manual" | "ble" | "simulated";
+  crowd_devices_observed: number;
   source: DataSource;
   quality: number;
 }

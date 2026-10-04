@@ -12,7 +12,9 @@ The dashboard polls `GET /api/rooms` every 3 seconds.
   "light_unit": "relative",
   "sound_level": 37.8,
   "temperature_c": 21.5,
-  "people_estimate": 18,
+  "people_estimate": 10,
+  "crowd_source": "ble",
+  "crowd_devices_observed": 13,
   "source": "live",
   "quality": 1
 }
@@ -23,6 +25,8 @@ for a BH1750 or `relative` for the Grove Light Sensor. The historical `lux`
 field carries either value so older clients remain compatible. `sound_level`
 is a calibrated relative 0–100 amplitude unless the microphone has been
 calibrated against a sound-level meter; it must not be presented as decibels.
+For BLE crowd estimates, only the aggregate advertiser count and calibrated
+people estimate leave the Pi; raw Bluetooth addresses are never retained.
 
 MVP fallback rules:
 

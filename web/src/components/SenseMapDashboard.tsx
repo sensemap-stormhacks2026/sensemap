@@ -314,12 +314,21 @@ export default function SenseMapDashboard() {
                 <strong>{Math.round(selected.reading.crowd_ratio * 100)}%</strong>
               </div>
               <div className="capacity-track"><i style={{ width: `${selected.reading.crowd_ratio * 100}%` }} /></div>
-              <p>{selected.reading.people_estimate} people · {selected.areaM2} m² · {selected.reading.density.toFixed(2)} people/m²</p>
+              <p>
+                {selected.reading.people_estimate} estimated people · {selected.areaM2} m² ·{" "}
+                {selected.reading.density.toFixed(2)} people/m²
+                {selected.reading.crowd_source === "ble" &&
+                  ` · ${selected.reading.crowd_devices_observed} BLE signals observed`}
+              </p>
             </div>
 
             <div className="data-note">
               <strong>Privacy-first estimate</strong>
-              <p>No MAC addresses are stored. Crowd data is opt-in, aggregate, or simulated.</p>
+              <p>
+                {selected.reading.crowd_source === "ble"
+                  ? "Bluetooth addresses are hashed in memory and discarded after each scan window."
+                  : "No MAC addresses are stored. Crowd data is aggregate, manual, or simulated."}
+              </p>
             </div>
           </aside>
         )}

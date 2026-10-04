@@ -127,6 +127,24 @@ non-AI recommendation.
 Sound is shown as relative amplitude out of 100, **not decibels**. Reporting dB
 would require calibration against a real sound-level meter.
 
+### BLE crowd estimate
+
+The Pi can estimate crowding from unique BLE advertisers in a disposable time
+window. Enable it only where passive scanning is authorized:
+
+```bash
+export SENSEMAP_CROWD_MODE=ble
+export BLE_SCAN_WINDOW=300
+export BLE_MIN_RSSI=-70
+export BLE_PEOPLE_FACTOR=0.8
+```
+
+For a faster demo, use `BLE_SCAN_WINDOW=60`. The scanner hashes addresses
+immediately with a random per-window salt, retains only hashes in memory, and
+discards the entire set when the window ends. The dashboard receives only the
+aggregate advertiser count and estimated people count. Calibrate the factor as
+`known people / observed advertisers`; `0.8` is only a starting assumption.
+
 ## Crowd estimation and privacy
 
 SenseMap does not store MAC addresses, packet captures, phone identities, or

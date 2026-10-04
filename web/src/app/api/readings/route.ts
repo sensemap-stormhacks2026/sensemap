@@ -12,6 +12,8 @@ const readingSchema = z.object({
   sound_level: z.number().min(0).max(100),
   temperature_c: z.number().min(-20).max(70),
   people_estimate: z.number().int().min(0).max(20_000),
+  crowd_source: z.enum(["manual", "ble", "simulated"]).default("manual"),
+  crowd_devices_observed: z.number().int().min(0).max(20_000).default(0),
   source: z.enum(["live", "estimated", "simulated"]),
   quality: z.number().min(0).max(1),
 });

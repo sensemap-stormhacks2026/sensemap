@@ -38,6 +38,8 @@ function simulatedReading(index: number): ReadingInput {
     sound_level: Math.round((base.sound + Math.sin(tick * 1.2) * 5) * 10) / 10,
     temperature_c: Math.round((base.temp + Math.sin(tick * 0.15) * 0.5) * 10) / 10,
     people_estimate: Math.max(0, Math.round(base.people + Math.sin(tick * 0.4) * 5)),
+    crowd_source: "simulated",
+    crowd_devices_observed: 0,
     source: "simulated",
     quality: 1,
   };
@@ -93,8 +95,8 @@ export async function saveReading(reading: ReadingInput): Promise<"tiger" | "dem
   await db.query(
     `INSERT INTO readings
       (time, device_id, room_id, lux, light_unit, sound_level, temperature_c,
-       people_estimate, source, quality)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       people_estimate, crowd_source, crowd_devices_observed, source, quality)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [
       reading.timestamp,
       reading.device_id,
@@ -104,6 +106,8 @@ export async function saveReading(reading: ReadingInput): Promise<"tiger" | "dem
       reading.sound_level,
       reading.temperature_c,
       reading.people_estimate,
+      reading.crowd_source,
+      reading.crowd_devices_observed,
       reading.source,
       reading.quality,
     ],
@@ -142,7 +146,8 @@ export async function getRoomsWithReadings(): Promise<RoomsResponse> {
     const result = await db.query<ReadingInput>(
       `SELECT DISTINCT ON (room_id)
          time AS timestamp, device_id, room_id, lux, light_unit, sound_level,
-         temperature_c, people_estimate, source, quality
+         temperature_c, people_estimate, crowd_source,
+         crowd_devices_observed, source, quality
        FROM readings
        ORDER BY room_id, time DESC`,
     );

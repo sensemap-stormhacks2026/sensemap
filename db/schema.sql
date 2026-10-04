@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS readings (
   sound_level DOUBLE PRECISION NOT NULL,
   temperature_c DOUBLE PRECISION NOT NULL,
   people_estimate INTEGER NOT NULL,
+  crowd_source TEXT NOT NULL DEFAULT 'manual'
+    CHECK (crowd_source IN ('manual', 'ble', 'simulated')),
+  crowd_devices_observed INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL CHECK (source IN ('live', 'estimated', 'simulated')),
   quality DOUBLE PRECISION NOT NULL CHECK (quality >= 0 AND quality <= 1)
 ) WITH (
@@ -33,6 +36,12 @@ CREATE INDEX IF NOT EXISTS readings_room_time_idx ON readings (room_id, time DES
 
 ALTER TABLE readings
   ADD COLUMN IF NOT EXISTS light_unit TEXT NOT NULL DEFAULT 'lux';
+
+ALTER TABLE readings
+  ADD COLUMN IF NOT EXISTS crowd_source TEXT NOT NULL DEFAULT 'manual';
+
+ALTER TABLE readings
+  ADD COLUMN IF NOT EXISTS crowd_devices_observed INTEGER NOT NULL DEFAULT 0;
 
 INSERT INTO rooms (id, name, building, floor, latitude, longitude, area_m2, capacity)
 VALUES

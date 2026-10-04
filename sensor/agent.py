@@ -8,12 +8,16 @@ to care which hardware is attached.
 from __future__ import annotations
 
 import argparse
+import asyncio
+import hashlib
 import json
 import math
 import os
 import random
+import secrets
 import signal
 import statistics
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -131,6 +135,83 @@ class GroveSoundReader:
         return min(100.0, max(0.0, (high - low) * self.gain))
 
 
+class BLECrowdReader:
+    """Counts anonymized BLE advertisers in fixed, disposable time windows."""
+
+    def __init__(self) -> None:
+        try:
+            import bleak  # type: ignore[import-not-found]  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError("install the 'bleak' Python package") from exc
+        self.window_seconds = max(15, int(os.getenv("BLE_SCAN_WINDOW", "300")))
+        self.min_rssi = int(os.getenv("BLE_MIN_RSSI", "-70"))
+        self.people_factor = max(0.0, float(os.getenv("BLE_PEOPLE_FACTOR", "0.8")))
+        self._window_started = time.monotonic()
+        self._salt = secrets.token_bytes(32)
+        self._identifiers: set[str] = set()
+        self._lock = threading.Lock()
+        self._error: str | None = None
+        self._last_reported = -1
+        self._thread = threading.Thread(
+            target=self._run_thread,
+            name="sensemap-ble-scanner",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _rotate_if_needed(self, now: float) -> None:
+        if now - self._window_started < self.window_seconds:
+            return
+        self._window_started = now
+        self._salt = secrets.token_bytes(32)
+        self._identifiers.clear()
+
+    def _on_detection(self, device, advertisement_data) -> None:
+        rssi = getattr(advertisement_data, "rssi", -127)
+        if rssi < self.min_rssi:
+            return
+        now = time.monotonic()
+        with self._lock:
+            self._rotate_if_needed(now)
+            # The raw address is never retained or logged.
+            digest = hashlib.blake2s(
+                str(device.address).encode("utf-8"),
+                key=self._salt,
+                digest_size=16,
+            ).hexdigest()
+            self._identifiers.add(digest)
+
+    async def _scan(self) -> None:
+        from bleak import BleakScanner  # type: ignore[import-not-found]
+
+        async with BleakScanner(detection_callback=self._on_detection):
+            while True:
+                await asyncio.sleep(1)
+
+    def _run_thread(self) -> None:
+        try:
+            asyncio.run(self._scan())
+        except Exception as exc:
+            self._error = str(exc)
+            print(f"[sensemap] BLE scanner stopped: {exc}")
+
+    def read(self) -> tuple[int, int]:
+        if self._error:
+            raise RuntimeError(self._error)
+        now = time.monotonic()
+        with self._lock:
+            self._rotate_if_needed(now)
+            observed = len(self._identifiers)
+        estimate = round(observed * self.people_factor)
+        if observed != self._last_reported:
+            print(
+                f"[sensemap] BLE crowd: {observed} advertisers "
+                f"-> {estimate} estimated people"
+            )
+            self._last_reported = observed
+        return observed, estimate
+
+
 class DHT22Reader:
     name = "temperature"
     is_live = True
@@ -190,6 +271,8 @@ class Reading:
     sound_level: float
     temperature_c: float
     people_estimate: int
+    crowd_source: str
+    crowd_devices_observed: int
     source: str
     quality: float
 
@@ -200,7 +283,14 @@ class SensorNode:
         self.room_id = os.getenv("SENSEMAP_ROOM_ID", "aq-3000")
         self.people = int(os.getenv("SENSEMAP_PEOPLE", "18"))
         self.readers: dict[str, Reader] = {}
+        self.crowd_reader: BLECrowdReader | None = None
         profile = os.getenv("SENSEMAP_SENSOR_PROFILE", "auto").lower()
+        if os.getenv("SENSEMAP_CROWD_MODE", "manual").lower() == "ble":
+            try:
+                self.crowd_reader = BLECrowdReader()
+                print("[sensemap] crowd: BLE scanner started")
+            except Exception as exc:
+                print(f"[sensemap] crowd: using manual estimate ({exc})")
 
         def light_reader() -> Reader:
             if profile in ("auto", "grove"):
@@ -271,6 +361,16 @@ class SensorNode:
         if live_count == 0:
             source = "simulated"
 
+        crowd_source = "manual"
+        observed_devices = 0
+        people_estimate = self.people
+        if self.crowd_reader:
+            try:
+                observed_devices, people_estimate = self.crowd_reader.read()
+                crowd_source = "ble"
+            except Exception as exc:
+                print(f"[sensemap] BLE crowd read failed: {exc}")
+
         return Reading(
             timestamp=utc_now(),
             device_id=self.device_id,
@@ -279,7 +379,9 @@ class SensorNode:
             light_unit=str(getattr(self.readers["light"], "unit", "lux")),
             sound_level=round(values["sound"], 1),
             temperature_c=round(values["temperature"], 1),
-            people_estimate=self.people,
+            people_estimate=people_estimate,
+            crowd_source=crowd_source,
+            crowd_devices_observed=observed_devices,
             source=source,
             quality=round(successful_live / len(self.readers), 2),
         )
