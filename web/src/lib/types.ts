@@ -6,6 +6,7 @@ export interface ReadingInput {
   device_id: string;
   room_id: string;
   lux: number;
+  light_unit: "lux" | "relative";
   sound_level: number;
   temperature_c: number;
   people_estimate: number;

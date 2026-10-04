@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS readings (
   device_id TEXT NOT NULL,
   room_id TEXT NOT NULL REFERENCES rooms(id),
   lux DOUBLE PRECISION NOT NULL,
+  light_unit TEXT NOT NULL DEFAULT 'lux'
+    CHECK (light_unit IN ('lux', 'relative')),
   sound_level DOUBLE PRECISION NOT NULL,
   temperature_c DOUBLE PRECISION NOT NULL,
   people_estimate INTEGER NOT NULL,
@@ -28,6 +30,9 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 
 CREATE INDEX IF NOT EXISTS readings_room_time_idx ON readings (room_id, time DESC);
+
+ALTER TABLE readings
+  ADD COLUMN IF NOT EXISTS light_unit TEXT NOT NULL DEFAULT 'lux';
 
 INSERT INTO rooms (id, name, building, floor, latitude, longitude, area_m2, capacity)
 VALUES

@@ -8,7 +8,8 @@ The dashboard polls `GET /api/rooms` every 3 seconds.
   "timestamp": "2026-10-03T21:00:00.000Z",
   "device_id": "pi-demo-01",
   "room_id": "aq-3000",
-  "lux": 430.2,
+  "lux": 52.1,
+  "light_unit": "relative",
   "sound_level": 37.8,
   "temperature_c": 21.5,
   "people_estimate": 18,
@@ -17,9 +18,11 @@ The dashboard polls `GET /api/rooms` every 3 seconds.
 }
 ```
 
-`source` is one of `live`, `estimated`, or `simulated`. `sound_level` is a
-calibrated relative 0–100 amplitude unless the microphone has been calibrated
-against a sound-level meter; it must not be presented as decibels.
+`source` is one of `live`, `estimated`, or `simulated`. `light_unit` is `lux`
+for a BH1750 or `relative` for the Grove Light Sensor. The historical `lux`
+field carries either value so older clients remain compatible. `sound_level`
+is a calibrated relative 0–100 amplitude unless the microphone has been
+calibrated against a sound-level meter; it must not be presented as decibels.
 
 MVP fallback rules:
 

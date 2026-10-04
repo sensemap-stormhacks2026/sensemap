@@ -8,6 +8,7 @@ const readingSchema = z.object({
   device_id: z.string().min(1).max(80),
   room_id: z.string().min(1).max(80),
   lux: z.number().min(0).max(200_000),
+  light_unit: z.enum(["lux", "relative"]).default("lux"),
   sound_level: z.number().min(0).max(100),
   temperature_c: z.number().min(-20).max(70),
   people_estimate: z.number().int().min(0).max(20_000),

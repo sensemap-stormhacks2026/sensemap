@@ -34,6 +34,7 @@ function simulatedReading(index: number): ReadingInput {
     device_id: `demo-node-${index + 1}`,
     room_id: room.id,
     lux: Math.round(base.lux + Math.sin(tick * 0.7) * 35),
+    light_unit: "lux",
     sound_level: Math.round((base.sound + Math.sin(tick * 1.2) * 5) * 10) / 10,
     temperature_c: Math.round((base.temp + Math.sin(tick * 0.15) * 0.5) * 10) / 10,
     people_estimate: Math.max(0, Math.round(base.people + Math.sin(tick * 0.4) * 5)),
@@ -91,14 +92,15 @@ export async function saveReading(reading: ReadingInput): Promise<"tiger" | "dem
   if (!db) return "demo";
   await db.query(
     `INSERT INTO readings
-      (time, device_id, room_id, lux, sound_level, temperature_c,
+      (time, device_id, room_id, lux, light_unit, sound_level, temperature_c,
        people_estimate, source, quality)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     [
       reading.timestamp,
       reading.device_id,
       reading.room_id,
       reading.lux,
+      reading.light_unit,
       reading.sound_level,
       reading.temperature_c,
       reading.people_estimate,
@@ -139,7 +141,7 @@ export async function getRoomsWithReadings(): Promise<RoomsResponse> {
   try {
     const result = await db.query<ReadingInput>(
       `SELECT DISTINCT ON (room_id)
-         time AS timestamp, device_id, room_id, lux, sound_level,
+         time AS timestamp, device_id, room_id, lux, light_unit, sound_level,
          temperature_c, people_estimate, source, quality
        FROM readings
        ORDER BY room_id, time DESC`,

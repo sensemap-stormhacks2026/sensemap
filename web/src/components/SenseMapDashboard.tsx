@@ -263,8 +263,16 @@ export default function SenseMapDashboard() {
 
             <div className="metrics">
               <article>
-                <span className="metric-icon">Lx</span>
-                <div><small>Light</small><strong>{Math.round(selected.reading.lux)} lux</strong></div>
+                <span className="metric-icon">
+                  {selected.reading.light_unit === "relative" ? "%" : "Lx"}
+                </span>
+                <div>
+                  <small>Light</small>
+                  <strong>
+                    {Math.round(selected.reading.lux)}
+                    {selected.reading.light_unit === "relative" ? "% relative" : " lux"}
+                  </strong>
+                </div>
                 <em className={`level-${selected.reading.light_status}`}>
                   {statusText("light", selected.reading.light_status)}
                 </em>

@@ -37,11 +37,19 @@ class Reader(Protocol):
 class SimulatedReader:
     is_live = False
 
-    def __init__(self, name: str, center: float, spread: float, period: float):
+    def __init__(
+        self,
+        name: str,
+        center: float,
+        spread: float,
+        period: float,
+        unit: str | None = None,
+    ):
         self.name = name
         self.center = center
         self.spread = spread
         self.period = period
+        self.unit = unit
         self.started = time.monotonic()
 
     def read(self) -> float:
@@ -53,6 +61,7 @@ class SimulatedReader:
 class BH1750Reader:
     name = "light"
     is_live = True
+    unit = "lux"
 
     def __init__(self) -> None:
         import adafruit_bh1750  # type: ignore[import-not-found]
@@ -62,6 +71,64 @@ class BH1750Reader:
 
     def read(self) -> float:
         return float(self.sensor.lux)
+
+
+def connect_grove_adc(test_channel: int):
+    """Connect to either revision of the Grove Base Hat ADC."""
+    from grove.adc import ADC  # type: ignore[import-not-found]
+
+    configured = os.getenv("GROVE_ADC_ADDRESS")
+    addresses = [int(configured, 0)] if configured else [0x08, 0x04]
+    last_error: BaseException | None = None
+    for address in addresses:
+        try:
+            adc = ADC(address)
+            adc.read(test_channel)
+            print(f"[sensemap] Grove Base Hat detected at 0x{address:02x}")
+            return adc
+        except (IOError, OSError, SystemExit) as exc:
+            last_error = exc
+    raise RuntimeError(f"Grove Base Hat not found at 0x08 or 0x04: {last_error}")
+
+
+class GroveLightReader:
+    """Reads the Grove Light Sensor v1.2 as a relative percentage."""
+
+    name = "light"
+    is_live = True
+    unit = "relative"
+
+    def __init__(self, channel: int = 0) -> None:
+        self.channel = channel
+        self.adc = connect_grove_adc(channel)
+
+    def read(self) -> float:
+        # grove.py returns a 0–1000 ratio. Keep the UI honest by showing 0–100%.
+        return min(100.0, max(0.0, float(self.adc.read(self.channel)) / 10.0))
+
+
+class GroveSoundReader:
+    """Measures Grove Sound Sensor v1.6 peak-to-peak activity over 250 ms."""
+
+    name = "sound"
+    is_live = True
+
+    def __init__(self, channel: int = 2) -> None:
+        self.channel = channel
+        self.adc = connect_grove_adc(channel)
+        self.gain = float(os.getenv("GROVE_SOUND_GAIN", "0.35"))
+
+    def read(self) -> float:
+        samples = []
+        deadline = time.monotonic() + 0.25
+        while time.monotonic() < deadline:
+            samples.append(float(self.adc.read(self.channel)))
+        if len(samples) < 2:
+            return 0.0
+        samples.sort()
+        low = samples[max(0, int(len(samples) * 0.05) - 1)]
+        high = samples[min(len(samples) - 1, int(len(samples) * 0.95))]
+        return min(100.0, max(0.0, (high - low) * self.gain))
 
 
 class DHT22Reader:
@@ -119,6 +186,7 @@ class Reading:
     device_id: str
     room_id: str
     lux: float
+    light_unit: str
     sound_level: float
     temperature_c: float
     people_estimate: int
@@ -132,14 +200,33 @@ class SensorNode:
         self.room_id = os.getenv("SENSEMAP_ROOM_ID", "aq-3000")
         self.people = int(os.getenv("SENSEMAP_PEOPLE", "18"))
         self.readers: dict[str, Reader] = {}
+        profile = os.getenv("SENSEMAP_SENSOR_PROFILE", "auto").lower()
+
+        def light_reader() -> Reader:
+            if profile in ("auto", "grove"):
+                try:
+                    return GroveLightReader(int(os.getenv("GROVE_LIGHT_CHANNEL", "0")))
+                except Exception:
+                    if profile == "grove":
+                        raise
+            return BH1750Reader()
+
+        def sound_reader() -> Reader:
+            if profile in ("auto", "grove"):
+                try:
+                    return GroveSoundReader(int(os.getenv("GROVE_SOUND_CHANNEL", "2")))
+                except Exception:
+                    if profile == "grove":
+                        raise
+            return MCP3008SoundReader(int(os.getenv("MCP3008_CHANNEL", "0")))
 
         factories = {
-            "light": BH1750Reader,
+            "light": light_reader,
             "temperature": lambda: DHT22Reader(os.getenv("DHT_PIN", "D4")),
-            "sound": lambda: MCP3008SoundReader(int(os.getenv("MCP3008_CHANNEL", "0"))),
+            "sound": sound_reader,
         }
         fallbacks = {
-            "light": lambda: SimulatedReader("light", 430, 170, 24),
+            "light": lambda: SimulatedReader("light", 430, 170, 24, "lux"),
             "temperature": lambda: SimulatedReader("temperature", 21.5, 2.2, 90),
             "sound": lambda: SimulatedReader("sound", 38, 22, 18),
         }
@@ -150,7 +237,10 @@ class SensorNode:
                 continue
             try:
                 self.readers[name] = factories[name]()
-                print(f"[sensemap] {name}: live sensor ready")
+                print(
+                    f"[sensemap] {name}: "
+                    f"{type(self.readers[name]).__name__} ready"
+                )
             except Exception as exc:
                 print(f"[sensemap] {name}: using simulator ({exc})")
                 self.readers[name] = fallbacks[name]()
@@ -180,6 +270,7 @@ class SensorNode:
             device_id=self.device_id,
             room_id=self.room_id,
             lux=round(values["light"], 1),
+            light_unit=str(getattr(self.readers["light"], "unit", "lux")),
             sound_level=round(values["sound"], 1),
             temperature_c=round(values["temperature"], 1),
             people_estimate=self.people,

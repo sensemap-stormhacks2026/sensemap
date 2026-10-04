@@ -5,8 +5,13 @@ const clamp = (value: number, min = 0, max = 1) =>
 
 export function classifyReading(reading: ReadingInput, room: Room): RoomReading {
   const crowdRatio = clamp(reading.people_estimate / room.capacity);
+  const relativeLight = reading.light_unit === "relative";
   const lightStatus: Level =
-    reading.lux < 150 ? "low" : reading.lux <= 500 ? "moderate" : "high";
+    reading.lux < (relativeLight ? 30 : 150)
+      ? "low"
+      : reading.lux <= (relativeLight ? 70 : 500)
+        ? "moderate"
+        : "high";
   const soundStatus: Level =
     reading.sound_level < 35
       ? "low"
@@ -25,7 +30,9 @@ export function classifyReading(reading: ReadingInput, room: Room): RoomReading 
   const noiseComfort = 1 - clamp(reading.sound_level / 100);
   const crowdComfort = 1 - crowdRatio;
   const tempComfort = 1 - clamp(Math.abs(reading.temperature_c - 21.5) / 8);
-  const lightComfort = 1 - clamp(Math.abs(reading.lux - 400) / 600);
+  const lightComfort = relativeLight
+    ? 1 - clamp(Math.abs(reading.lux - 50) / 50)
+    : 1 - clamp(Math.abs(reading.lux - 400) / 600);
   const score = Math.round(
     (noiseComfort * 0.35 +
       crowdComfort * 0.3 +

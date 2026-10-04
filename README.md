@@ -83,14 +83,17 @@ Enable I²C and SPI, then reboot.
 
 | Sensor | Raspberry Pi connection | Agent support |
 |---|---|---|
+| Grove Light Sensor v1.2 | Grove Base Hat analog socket A0/A1; channel 0 | Auto-detected as relative 0–100% |
+| Grove Sound Sensor v1.6 | Grove Base Hat analog socket A2/A3; channel 2 | Auto-detected as relative amplitude |
 | BH1750 light | 3.3V, GND, SDA, SCL (I²C) | Auto-detected |
 | DHT22 temperature | 3.3V, GND, data to GPIO 4 with pull-up | Auto-detected |
 | Analog sound module | Module output to MCP3008 CH0; MCP3008 over SPI | Auto-detected |
 
-The Raspberry Pi has no analog input, so an analog sound sensor requires an
-MCP3008/ADS1115 or a USB microphone. Change `DHT_PIN` and `MCP3008_CHANNEL` with
-environment variables. If any driver or sensor is absent, only that metric uses
-the simulator and the payload quality reflects the change.
+The Grove Base Hat supplies the ADC missing from the Raspberry Pi. It is detected
+at I²C address `0x08` or `0x04`; override with `GROVE_ADC_ADDRESS=0x08` if needed.
+Use `SENSEMAP_SENSOR_PROFILE=grove`, `GROVE_LIGHT_CHANNEL=0`, and
+`GROVE_SOUND_CHANNEL=2` for the StormHacks node. If any sensor is absent, only
+that metric uses the simulator and the payload quality reflects the change.
 
 ## Tiger Data
 
@@ -113,7 +116,8 @@ non-AI recommendation.
 
 ## Scoring
 
-- Light: dim below 150 lux, balanced from 150–500, bright above 500
+- Lux light sensors: dim below 150 lux, balanced from 150–500, bright above 500
+- Grove light sensor: dim below 30%, balanced from 30–70%, bright above 70%
 - Relative sound: quiet below 35, moderate from 35–65, noisy above 65
 - Temperature: cool below 19°C, comfortable from 19–24°C, warm above 24°C
 - Crowd: low below 35% capacity, moderate from 35–70%, high above 70%
