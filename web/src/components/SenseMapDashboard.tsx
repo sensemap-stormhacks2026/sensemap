@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CampusMap from "./CampusMap";
 import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
@@ -23,28 +23,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "live", label: "Live node" },
 ];
 
-function FilterBar({
-  filter,
-  onChange,
-}: {
-  filter: Filter;
-  onChange: (value: Filter) => void;
-}) {
-  return (
-    <div className="filters" aria-label="Filter study spaces">
-      {FILTERS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={filter === item.id ? "active" : ""}
-          onClick={() => onChange(item.id)}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const OTHER_PREVIEW_COUNT = 2;
 
 function ageLabel(timestamp: string) {
   const seconds = Math.max(
@@ -56,23 +35,42 @@ function ageLabel(timestamp: string) {
   return `${Math.floor(seconds / 60)}m ago`;
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const width = 220;
-  const height = 42;
-  const min = Math.min(...values) - 3;
-  const max = Math.max(...values) + 3;
-  const points = values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
-      const y = height - ((value - min) / (max - min || 1)) * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
+function statusText(metric: string, status: string) {
+  if (metric === "temperature") {
+    return status === "moderate" ? "Comfortable" : status === "low" ? "Cool" : "Warm";
+  }
+  if (metric === "sound") {
+    return status === "low" ? "Quiet" : status === "moderate" ? "Moderate" : "Loud";
+  }
+  if (metric === "light") {
+    return status === "low" ? "Dim" : status === "moderate" ? "Balanced" : "Bright";
+  }
+  return status[0].toUpperCase() + status.slice(1);
+}
+
+function scoreTone(score: number) {
+  return scoreLabel(score).toLowerCase().replace(" ", "-");
+}
+
+function ScoreMeter({ score }: { score: number }) {
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
   return (
-    <svg className="sparkline" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Recent sound trend">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2.5" />
-    </svg>
+    <div className={`score-meter score-${scoreTone(score)}`} aria-label={`Suitability ${score}`}>
+      <svg viewBox="0 0 64 64">
+        <circle className="track" cx="32" cy="32" r={radius} />
+        <circle
+          className="value"
+          cx="32"
+          cy="32"
+          r={radius}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <strong>{score}</strong>
+    </div>
   );
 }
 
@@ -92,19 +90,6 @@ function SourceBadge({ room }: { room: RoomWithReading }) {
   );
 }
 
-function statusText(metric: string, status: string) {
-  if (metric === "temperature") {
-    return status === "moderate" ? "Comfortable" : status === "low" ? "Cool" : "Warm";
-  }
-  if (metric === "sound") {
-    return status === "low" ? "Quiet" : status === "moderate" ? "Moderate" : "Noisy";
-  }
-  if (metric === "light") {
-    return status === "low" ? "Dim" : status === "moderate" ? "Balanced" : "Bright";
-  }
-  return status[0].toUpperCase() + status.slice(1);
-}
-
 export default function SenseMapDashboard({
   initialData,
 }: {
@@ -115,8 +100,11 @@ export default function SenseMapDashboard({
   );
   const [selectedId, setSelectedId] = useState("aq-303");
   const [filter, setFilter] = useState<Filter>("all");
+  const [listExpanded, setListExpanded] = useState(false);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [guideRoomId, setGuideRoomId] = useState<string | null>(null);
   const [apiError, setApiError] = useState(false);
+  const mapSectionRef = useRef<HTMLElement>(null);
 
   const loadRooms = useCallback(async () => {
     const controller = new AbortController();
@@ -178,12 +166,58 @@ export default function SenseMapDashboard({
         .map((room) => room.id),
     );
   }, [filter, rooms]);
-  const sortedRooms = [...rooms].sort(
-    (a, b) => b.reading.suitability_score - a.reading.suitability_score,
+  const filteredRooms = useMemo(
+    () =>
+      [...rooms]
+        .filter((room) => visibleRoomIds.has(room.id))
+        .sort((a, b) => b.reading.suitability_score - a.reading.suitability_score),
+    [rooms, visibleRoomIds],
   );
+  useEffect(() => {
+    const match = recommendation
+      ? rooms.find(
+          (room) =>
+            room.name === recommendation.recommended_room ||
+            room.shortName === recommendation.recommended_room,
+        )
+      : null;
+    if (match) {
+      setGuideRoomId(match.id);
+      return;
+    }
+    if (!guideRoomId && filteredRooms[0]) {
+      setGuideRoomId(filteredRooms[0].id);
+    }
+  }, [filteredRooms, guideRoomId, recommendation, rooms]);
+
+  const recommendedRoom =
+    rooms.find((room) => room.id === guideRoomId) ??
+    filteredRooms[0] ??
+    rooms[0];
+  const otherRooms = filteredRooms.filter((room) => room.id !== selected?.id);
+  const visibleOtherRooms = listExpanded
+    ? otherRooms
+    : otherRooms.slice(0, OTHER_PREVIEW_COUNT);
+  const hiddenCount = Math.max(0, otherRooms.length - OTHER_PREVIEW_COUNT);
   const activeNodes = rooms.filter(
     (room) => room.reading.source !== "simulated" && !room.reading.stale,
   ).length;
+
+  const changeFilter = (value: Filter) => {
+    setFilter(value);
+    setListExpanded(false);
+  };
+
+  const chooseRoom = (roomId: string) => {
+    setSelectedId(roomId);
+    if (!window.matchMedia("(max-width: 979px)").matches) return;
+    window.requestAnimationFrame(() => {
+      mapSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
 
   if (!data?.rooms?.length) {
     return (
@@ -206,86 +240,69 @@ export default function SenseMapDashboard({
           </div>
         </div>
         <div className="topbar-status">
-          <span className="network-status">
+          <span className="live-pill">
             <i />
-            {activeNodes} live {activeNodes === 1 ? "node" : "nodes"} · {rooms.length} spaces
+            Live
           </span>
-          <span className="storage-status">{data.storage === "tiger" ? "Tiger Data" : "Demo store"}</span>
-          <span className="updated-time">Updated {ageLabel(data.generated_at)}</span>
+          <span className="network-status">
+            {activeNodes} {activeNodes === 1 ? "node" : "nodes"} · {rooms.length} spaces
+          </span>
         </div>
       </header>
-      <div className="filter-toolbar">
-        <FilterBar filter={filter} onChange={setFilter} />
-      </div>
 
-      <section className="workspace">
-        <aside className="spaces-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Explore campus</p>
-              <h2>Find your focus</h2>
-            </div>
-            <span className="room-count">{visibleRoomIds.size}</span>
+      <div className="page-stack">
+        <section className="hero-card">
+          <div className="hero-copy">
+            <p className="eyebrow">Find your focus</p>
+            <h2>
+              {filteredRooms.length} matching {filteredRooms.length === 1 ? "space" : "spaces"} right now
+            </h2>
+            <p>
+              {recommendation?.reason ??
+                `${recommendedRoom.name} is the current best fit from live and demo conditions.`}
+            </p>
+            <small>
+              {recommendation?.caveat ?? "Scores weigh sound, crowd, temperature, and light."}
+            </small>
           </div>
+          <button
+            type="button"
+            className="hero-select"
+            onClick={() => chooseRoom(recommendedRoom.id)}
+          >
+            Select {recommendedRoom.shortName}
+          </button>
+        </section>
 
-          <div className="room-list">
-            {sortedRooms
-              .filter((room) => visibleRoomIds.has(room.id))
-              .map((room) => (
-                <button
-                  key={room.id}
-                  className={`room-card ${selected?.id === room.id ? "selected" : ""}`}
-                  onClick={() => setSelectedId(room.id)}
-                >
-                  <span className={`score-ring score-${scoreLabel(room.reading.suitability_score).toLowerCase().replace(" ", "-")}`}>
-                    {room.reading.suitability_score}
-                  </span>
-                  <span className="room-copy">
-                    <strong>{room.name}</strong>
-                    <small>{room.building} · Floor {room.floor}</small>
-                    <span className="room-tags">
-                      <em>{statusText("sound", room.reading.sound_status)}</em>
-                      <em>{Math.round(room.reading.crowd_ratio * 100)}% full</em>
-                      {room.outlets && <em>Outlets</em>}
-                    </span>
-                  </span>
-                  <span className="room-arrow">›</span>
-                </button>
-              ))}
-            {visibleRoomIds.size === 0 && (
-              <div className="empty-filter">No spaces match this filter right now.</div>
-            )}
+        <section className="filter-card" aria-label="Filter study spaces">
+          <p className="section-kicker">Choose a condition</p>
+          <div className="filters">
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={filter === item.id ? "active" : ""}
+                onClick={() => changeFilter(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
+        </section>
 
-          {recommendation && (
-            <div className="ai-card">
-              <div className="ai-card-title">
-                <span>Sense guide</span>
-                <i>{recommendation.powered_by === "gemini" ? "Gemini" : "Smart score"}</i>
-              </div>
-              <strong>{recommendation.recommended_room}</strong>
-              <p>{recommendation.reason}</p>
-              <small>{recommendation.caveat}</small>
-            </div>
-          )}
-        </aside>
-
-        <section className="map-panel">
+        <section className="map-card" ref={mapSectionRef} id="campus-map">
           <div className="map-title">
             <div>
-              <span className="live-pulse"><i />Live conditions</span>
-              <h2>Burnaby Campus</h2>
+              <span className="live-pulse"><i />Campus map</span>
+              <h2>Burnaby live conditions</h2>
             </div>
-            <div className="map-controls-copy">
-              <span>Drag to explore</span>
-              <span>Scroll to zoom</span>
-            </div>
+            {selected && <p>Showing {selected.shortName}</p>}
           </div>
           <CampusMap
             rooms={rooms}
             selectedId={selected?.id ?? ""}
             visibleRoomIds={visibleRoomIds}
-            onSelect={setSelectedId}
+            onSelect={chooseRoom}
           />
           {apiError && (
             <div className="connection-warning">Connection interrupted — showing last known conditions.</div>
@@ -293,115 +310,120 @@ export default function SenseMapDashboard({
         </section>
 
         {selected && (
-          <aside className="detail-panel">
-            <div className="detail-hero">
-              <div className="detail-topline">
-                <SourceBadge room={selected} />
-                <span className="sensor-id">{selected.reading.device_id}</span>
-              </div>
-              <p className="eyebrow">{selected.building} · Floor {selected.floor}</p>
-              <h2>{selected.name}</h2>
-              <div className="hero-score">
-                <strong>{selected.reading.suitability_score}</strong>
-                <span><b>{scoreLabel(selected.reading.suitability_score)}</b>Study suitability</span>
-              </div>
-              <p className="freshness">Updated {ageLabel(selected.reading.timestamp)}</p>
+          <section className="focus-card" id="room-details">
+            <div className="focus-topline">
+              <SourceBadge room={selected} />
+              <span className="freshness">Updated {ageLabel(selected.reading.timestamp)}</span>
             </div>
-
-            <div className="space-facts">
+            <div className="focus-heading">
               <div>
-                <small>Room</small>
-                <strong>{selected.roomNumber}</strong>
+                <p className="eyebrow">{selected.building} · Floor {selected.floor}</p>
+                <h2>{selected.name}</h2>
+                <p className="focus-meta">
+                  Room {selected.roomNumber} · {selected.hours}
+                  {selected.outlets ? " · Outlets" : ""}
+                </p>
               </div>
-              <div>
-                <small>Listed hours</small>
-                <strong>{selected.hours}</strong>
-              </div>
-              <div>
-                <small>Power</small>
-                <strong>{selected.outlets ? "Outlets available" : "No outlets listed"}</strong>
-              </div>
-              <div>
-                <small>Room data</small>
-                <strong>
-                  {selected.verification === "listed" ? "Workbook listing" : "Provisional"}
-                </strong>
-              </div>
-              {selected.dataNote && <p>{selected.dataNote}</p>}
-            </div>
-
-            <div className="metrics">
-              <article>
-                <span className="metric-icon">
-                  {selected.reading.light_unit === "relative" ? "%" : "Lx"}
+              <div className="focus-score">
+                <ScoreMeter score={selected.reading.suitability_score} />
+                <span>
+                  <b>{scoreLabel(selected.reading.suitability_score)}</b>
+                  Study match
                 </span>
-                <div>
-                  <small>Light</small>
-                  <strong>
-                    {Math.round(selected.reading.lux)}
-                    {selected.reading.light_unit === "relative" ? "% relative" : " lux"}
-                  </strong>
-                </div>
-                <em className={`level-${selected.reading.light_status}`}>
-                  {statusText("light", selected.reading.light_status)}
-                </em>
-              </article>
+              </div>
+            </div>
+
+            <div className="metric-grid">
               <article>
-                <span className="metric-icon">Au</span>
-                <div><small>Sound</small><strong>{Math.round(selected.reading.sound_level)} / 100</strong></div>
-                <em className={`level-${selected.reading.sound_status}`}>
+                <small>Sound</small>
+                <strong>{Math.round(selected.reading.sound_level)} / 100</strong>
+                <em className={`tone-${selected.reading.sound_status}`}>
                   {statusText("sound", selected.reading.sound_status)}
                 </em>
               </article>
               <article>
-                <span className="metric-icon">°C</span>
-                <div><small>Temperature</small><strong>{selected.reading.temperature_c.toFixed(1)}°C</strong></div>
-                <em className={`level-${selected.reading.temperature_status}`}>
+                <small>Light</small>
+                <strong>
+                  {Math.round(selected.reading.lux)}
+                  {selected.reading.light_unit === "relative" ? "%" : " lx"}
+                </strong>
+                <em className={`tone-${selected.reading.light_status}`}>
+                  {statusText("light", selected.reading.light_status)}
+                </em>
+              </article>
+              <article>
+                <small>Temperature</small>
+                <strong>{selected.reading.temperature_c.toFixed(1)}°C</strong>
+                <em className={`tone-${selected.reading.temperature_status}`}>
                   {statusText("temperature", selected.reading.temperature_status)}
                 </em>
               </article>
               <article>
-                <span className="metric-icon">Pp</span>
-                <div><small>Crowd</small><strong>{selected.reading.people_estimate} / {selected.capacity}</strong></div>
-                <em className={`level-${selected.reading.crowd_status}`}>
+                <small>Crowd</small>
+                <strong>{selected.reading.people_estimate} / {selected.capacity}</strong>
+                <em className={`tone-${selected.reading.crowd_status}`}>
                   {statusText("crowd", selected.reading.crowd_status)}
                 </em>
               </article>
             </div>
 
-            <div className="trend-card">
-              <div>
-                <span><small>Sound trend</small><strong>Last 45 seconds</strong></span>
-                <b>{statusText("sound", selected.reading.sound_status)}</b>
-              </div>
-              <Sparkline values={selected.trend} />
-            </div>
-
-            <div className="capacity-card">
+            <div className="occupancy-row">
               <div>
                 <small>Occupancy estimate</small>
-                <strong>{Math.round(selected.reading.crowd_ratio * 100)}%</strong>
+                <strong>{Math.round(selected.reading.crowd_ratio * 100)}% full</strong>
               </div>
-              <div className="capacity-track"><i style={{ width: `${selected.reading.crowd_ratio * 100}%` }} /></div>
-              <p>
-                {selected.reading.people_estimate} estimated people · {selected.areaM2} m² ·{" "}
-                {selected.reading.density.toFixed(2)} people/m²
-                {selected.reading.crowd_source === "ble" &&
-                  ` · ${selected.reading.crowd_devices_observed} BLE signals observed`}
-              </p>
+              <div className="capacity-track">
+                <i style={{ width: `${selected.reading.crowd_ratio * 100}%` }} />
+              </div>
             </div>
-
-            <div className="data-note">
-              <strong>Privacy-first estimate</strong>
-              <p>
-                {selected.reading.crowd_source === "ble"
-                  ? "Bluetooth addresses are hashed in memory and discarded after each scan window."
-                  : "No MAC addresses are stored. Crowd data is aggregate, manual, or simulated."}
-              </p>
-            </div>
-          </aside>
+            <p className="privacy-copy">
+              {selected.reading.crowd_source === "ble"
+                ? "Bluetooth addresses are hashed in memory and discarded after each scan."
+                : "No MAC addresses are stored. Crowd data is aggregate, manual, or simulated."}
+            </p>
+          </section>
         )}
-      </section>
+
+        <section className="other-card">
+          <div className="other-heading">
+            <div>
+              <p className="section-kicker">Other spaces</p>
+              <h3>{otherRooms.length} more {otherRooms.length === 1 ? "match" : "matches"}</h3>
+            </div>
+            {hiddenCount > 0 && (
+              <button type="button" className="list-toggle" onClick={() => setListExpanded((open) => !open)}>
+                {listExpanded ? "Show fewer" : `View all ${otherRooms.length}`}
+              </button>
+            )}
+          </div>
+
+          <div className="room-list">
+            {visibleOtherRooms.map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                className="room-card"
+                onClick={() => chooseRoom(room.id)}
+              >
+                <span className={`score-ring score-${scoreTone(room.reading.suitability_score)}`}>
+                  {room.reading.suitability_score}
+                </span>
+                <span className="room-copy">
+                  <strong>{room.name}</strong>
+                  <small>
+                    {room.shortName} · {statusText("sound", room.reading.sound_status)} ·{" "}
+                    {Math.round(room.reading.crowd_ratio * 100)}% full
+                  </small>
+                </span>
+                <span className="select-chip">Select</span>
+              </button>
+            ))}
+            {visibleRoomIds.size === 0 && (
+              <div className="empty-filter">No spaces match this filter right now.</div>
+            )}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

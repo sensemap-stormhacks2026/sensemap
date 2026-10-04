@@ -47,45 +47,25 @@ function points(
   };
 }
 
+const BUILDING_FILL = "#1d4ed8";
+const BUILDING_GLOW = "#38bdf8";
+const BUILDING_ROOF = "#bfdbfe";
+const BUILDING_OUTLINE = "#7dd3fc";
+
 const scoreColor = (
   scoreExpression: maplibregl.ExpressionSpecification,
 ): maplibregl.ExpressionSpecification =>
   [
     "case",
     [">=", scoreExpression, 75],
-    "#68ffe1",
+    "#22c55e",
     [">=", scoreExpression, 55],
-    "#b8f34b",
-    "#ff75d8",
+    "#f4c65b",
+    "#ff7369",
   ] as maplibregl.ExpressionSpecification;
 
 function roomColorExpression(): maplibregl.ExpressionSpecification {
   return scoreColor(["get", "score"]);
-}
-
-function scoreColorExpression(
-  rooms: RoomWithReading[],
-): maplibregl.ExpressionSpecification {
-  const groupedScores = new Map<string, number[]>();
-  rooms.forEach((room) => {
-    const scores = groupedScores.get(room.buildingCode) ?? [];
-    scores.push(room.reading.suitability_score);
-    groupedScores.set(room.buildingCode, scores);
-  });
-  const expression: unknown[] = ["match", ["get", "buildingCode"]];
-  groupedScores.forEach((scores, buildingCode) => {
-    const score = scores.reduce((sum, item) => sum + item, 0) / scores.length;
-    expression.push(
-      buildingCode,
-      score >= 75
-        ? "#68ffe1"
-        : score >= 55
-          ? "#b8f34b"
-          : "#ff75d8",
-    );
-  });
-  expression.push("#708078");
-  return expression as maplibregl.ExpressionSpecification;
 }
 
 export default function CampusMap({
@@ -160,7 +140,7 @@ export default function CampusMap({
         type: "line",
         source: "sensemap-buildings",
         paint: {
-          "line-color": scoreColorExpression(roomsRef.current),
+          "line-color": BUILDING_GLOW,
           "line-width": 8,
           "line-blur": 8,
           "line-opacity": 0.4,
@@ -171,7 +151,7 @@ export default function CampusMap({
         type: "fill-extrusion",
         source: "sensemap-buildings",
         paint: {
-          "fill-extrusion-color": scoreColorExpression(roomsRef.current),
+          "fill-extrusion-color": BUILDING_FILL,
           "fill-extrusion-height": ["get", "height"],
           "fill-extrusion-base": 0,
           "fill-extrusion-opacity": 0.42,
@@ -183,7 +163,7 @@ export default function CampusMap({
         type: "fill-extrusion",
         source: "sensemap-buildings",
         paint: {
-          "fill-extrusion-color": "#d9fff8",
+          "fill-extrusion-color": BUILDING_ROOF,
           "fill-extrusion-height": ["+", ["get", "height"], 0.8],
           "fill-extrusion-base": ["-", ["get", "height"], 0.35],
           "fill-extrusion-opacity": 0.5,
@@ -194,7 +174,7 @@ export default function CampusMap({
         type: "line",
         source: "sensemap-buildings",
         paint: {
-          "line-color": "#b7fff4",
+          "line-color": BUILDING_OUTLINE,
           "line-width": 2,
           "line-blur": 0.4,
           "line-opacity": 0.9,
@@ -222,8 +202,8 @@ export default function CampusMap({
           "text-allow-overlap": false,
         },
         paint: {
-          "text-color": "#dffff9",
-          "text-halo-color": "#03110f",
+          "text-color": "#e8eefc",
+          "text-halo-color": "#070b1c",
           "text-halo-width": 2,
         },
       });
@@ -253,7 +233,7 @@ export default function CampusMap({
           "circle-opacity": 0.78,
           "circle-blur": 0.25,
           "circle-stroke-width": ["case", ["get", "selected"], 3, 1.5],
-          "circle-stroke-color": "#e8fffb",
+          "circle-stroke-color": "#e8eefc",
         },
       });
       map.addLayer({
@@ -262,7 +242,7 @@ export default function CampusMap({
         source: "sensemap-rooms",
         paint: {
           "circle-radius": ["case", ["get", "selected"], 4.5, 3],
-          "circle-color": "#f4fffd",
+          "circle-color": "#f8fbff",
           "circle-opacity": 1,
         },
       });
@@ -285,8 +265,8 @@ export default function CampusMap({
           "text-allow-overlap": false,
         },
         paint: {
-          "text-color": "#eafffb",
-          "text-halo-color": "#04100d",
+          "text-color": "#e8eefc",
+          "text-halo-color": "#070b1c",
           "text-halo-width": 1.5,
         },
       });
@@ -362,13 +342,6 @@ export default function CampusMap({
       | undefined;
     source?.setData(points(visible, selectedId));
     if (map.getLayer("sensemap-buildings-3d")) {
-      const color = scoreColorExpression(rooms);
-      map.setPaintProperty(
-        "sensemap-buildings-3d",
-        "fill-extrusion-color",
-        color,
-      );
-      map.setPaintProperty("building-hologram-base", "line-color", color);
       const visibleBuildings = [
         ...new Set(visible.map((room) => room.buildingCode)),
       ];
@@ -415,9 +388,9 @@ export default function CampusMap({
         </div>
       )}
       <div className="map-legend" aria-label="Map legend">
-        <span><i className="legend-dot best" />Optimal</span>
-        <span><i className="legend-dot good" />Available</span>
-        <span><i className="legend-dot limited" />Busy</span>
+        <span><i className="legend-dot best" />Quiet</span>
+        <span><i className="legend-dot good" />Moderate</span>
+        <span><i className="legend-dot limited" />Loud</span>
         <small>SFU footprint · estimated height</small>
       </div>
       {inspectedBuilding && inspectedName && (
