@@ -13,6 +13,14 @@ type CampusMapProps = {
   onSelect: (roomId: string) => void;
 };
 
+const BUILDING_LAYER_IDS = [
+  "building-hologram-base",
+  "sensemap-buildings-3d",
+  "building-roof-glow",
+  "sensemap-building-outline",
+  "building-label",
+] as const;
+
 function points(
   rooms: RoomWithReading[],
   selectedId: string,
@@ -26,6 +34,10 @@ function points(
         name: room.shortName,
         score: room.reading.suitability_score,
         selected: room.id === selectedId,
+        buildingCode: room.buildingCode,
+        floor: room.floor,
+        capacity: room.capacity,
+        outlets: room.outlets,
       },
       geometry: {
         type: "Point",
@@ -33,6 +45,22 @@ function points(
       },
     })),
   };
+}
+
+const scoreColor = (
+  scoreExpression: maplibregl.ExpressionSpecification,
+): maplibregl.ExpressionSpecification =>
+  [
+    "case",
+    [">=", scoreExpression, 75],
+    "#68ffe1",
+    [">=", scoreExpression, 55],
+    "#b8f34b",
+    "#ff75d8",
+  ] as maplibregl.ExpressionSpecification;
+
+function roomColorExpression(): maplibregl.ExpressionSpecification {
+  return scoreColor(["get", "score"]);
 }
 
 function scoreColorExpression(
@@ -50,10 +78,10 @@ function scoreColorExpression(
     expression.push(
       buildingCode,
       score >= 75
-        ? "#b8f34b"
+        ? "#68ffe1"
         : score >= 55
-          ? "#f4c65b"
-          : "#ff7369",
+          ? "#b8f34b"
+          : "#ff75d8",
     );
   });
   expression.push("#708078");
@@ -72,6 +100,7 @@ export default function CampusMap({
   const selectedIdRef = useRef(selectedId);
   const onSelectRef = useRef(onSelect);
   const [mapFailed, setMapFailed] = useState(false);
+  const [inspectedBuilding, setInspectedBuilding] = useState<string | null>(null);
 
   useEffect(() => {
     roomsRef.current = rooms;
@@ -87,16 +116,13 @@ export default function CampusMap({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    maplibregl.setWorkerUrl(
-      "https://unpkg.com/maplibre-gl@6.12.0/dist/maplibre-gl-worker.mjs",
-    );
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: "https://tiles.openfreemap.org/styles/bright",
-      center: [-122.9192, 49.2787],
-      zoom: 15.7,
-      pitch: 55,
-      bearing: -28,
+      style: "https://tiles.openfreemap.org/styles/dark",
+      center: [-122.91865, 49.27885],
+      zoom: 15.55,
+      pitch: 62,
+      bearing: -31,
       attributionControl: false,
     });
     mapRef.current = map;
@@ -109,10 +135,31 @@ export default function CampusMap({
       "bottom-left",
     );
 
-    map.on("load", () => {
+    let styleReadyInterval: number | undefined;
+    const initializeSenseMapLayers = () => {
+      if (map.getSource("sensemap-buildings")) {
+        if (styleReadyInterval !== undefined) {
+          window.clearInterval(styleReadyInterval);
+          styleReadyInterval = undefined;
+        }
+        return;
+      }
+      if (!map.getStyle()?.layers?.length) return;
       map.addSource("sensemap-buildings", {
         type: "geojson",
         data: "/sfu-buildings.geojson",
+        attribution: "Building footprints © Simon Fraser University Facilities Services",
+      });
+      map.addLayer({
+        id: "building-hologram-base",
+        type: "line",
+        source: "sensemap-buildings",
+        paint: {
+          "line-color": scoreColorExpression(roomsRef.current),
+          "line-width": 8,
+          "line-blur": 8,
+          "line-opacity": 0.4,
+        },
       });
       map.addLayer({
         id: "sensemap-buildings-3d",
@@ -122,7 +169,19 @@ export default function CampusMap({
           "fill-extrusion-color": scoreColorExpression(roomsRef.current),
           "fill-extrusion-height": ["get", "height"],
           "fill-extrusion-base": 0,
-          "fill-extrusion-opacity": 0.82,
+          "fill-extrusion-opacity": 0.42,
+          "fill-extrusion-vertical-gradient": true,
+        },
+      });
+      map.addLayer({
+        id: "building-roof-glow",
+        type: "fill-extrusion",
+        source: "sensemap-buildings",
+        paint: {
+          "fill-extrusion-color": "#d9fff8",
+          "fill-extrusion-height": ["+", ["get", "height"], 0.8],
+          "fill-extrusion-base": ["-", ["get", "height"], 0.35],
+          "fill-extrusion-opacity": 0.5,
         },
       });
       map.addLayer({
@@ -130,9 +189,37 @@ export default function CampusMap({
         type: "line",
         source: "sensemap-buildings",
         paint: {
-          "line-color": "#f7fff0",
-          "line-width": 1.5,
-          "line-opacity": 0.65,
+          "line-color": "#b7fff4",
+          "line-width": 2,
+          "line-blur": 0.4,
+          "line-opacity": 0.9,
+        },
+      });
+      map.addLayer({
+        id: "building-label",
+        type: "symbol",
+        source: "sensemap-buildings",
+        layout: {
+          "text-field": [
+            "format",
+            ["get", "buildingCode"],
+            { "font-scale": 1.2 },
+            "\n",
+            {},
+            ["get", "roomCount"],
+            { "font-scale": 0.72 },
+            " SPACES",
+            { "font-scale": 0.72 },
+          ],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 12,
+          "text-letter-spacing": 0.12,
+          "text-allow-overlap": false,
+        },
+        paint: {
+          "text-color": "#dffff9",
+          "text-halo-color": "#03110f",
+          "text-halo-width": 2,
         },
       });
 
@@ -141,15 +228,37 @@ export default function CampusMap({
         data: points(roomsRef.current, selectedIdRef.current),
       });
       map.addLayer({
+        id: "room-glow-wide",
+        type: "circle",
+        source: "sensemap-rooms",
+        paint: {
+          "circle-radius": ["case", ["get", "selected"], 32, 24],
+          "circle-color": roomColorExpression(),
+          "circle-opacity": ["case", ["get", "selected"], 0.42, 0.24],
+          "circle-blur": 1,
+        },
+      });
+      map.addLayer({
         id: "room-halo",
         type: "circle",
         source: "sensemap-rooms",
         paint: {
-          "circle-radius": ["case", ["get", "selected"], 21, 17],
-          "circle-color": ["case", ["get", "selected"], "#1d2d12", "#07110d"],
-          "circle-opacity": 0.9,
+          "circle-radius": ["case", ["get", "selected"], 13, 10],
+          "circle-color": roomColorExpression(),
+          "circle-opacity": 0.78,
+          "circle-blur": 0.25,
           "circle-stroke-width": ["case", ["get", "selected"], 3, 1.5],
-          "circle-stroke-color": ["case", ["get", "selected"], "#b8f34b", "#dfffc1"],
+          "circle-stroke-color": "#e8fffb",
+        },
+      });
+      map.addLayer({
+        id: "room-core",
+        type: "circle",
+        source: "sensemap-rooms",
+        paint: {
+          "circle-radius": ["case", ["get", "selected"], 4.5, 3],
+          "circle-color": "#f4fffd",
+          "circle-opacity": 1,
         },
       });
       map.addLayer({
@@ -157,16 +266,23 @@ export default function CampusMap({
         type: "symbol",
         source: "sensemap-rooms",
         layout: {
-          "text-field": ["concat", ["get", "name"], "\n", ["to-string", ["get", "score"]]],
+          "text-field": [
+            "concat",
+            ["get", "name"],
+            "  ·  ",
+            ["to-string", ["get", "score"]],
+          ],
           "text-font": ["Noto Sans Bold"],
-          "text-size": 11,
-          "text-anchor": "center",
-          "text-allow-overlap": true,
+          "text-size": 10,
+          "text-offset": [0, 1.8],
+          "text-variable-anchor": ["top", "bottom", "left", "right"],
+          "text-radial-offset": 0.7,
+          "text-allow-overlap": false,
         },
         paint: {
-          "text-color": "#f4f8f5",
-          "text-halo-color": "#07110d",
-          "text-halo-width": 0.5,
+          "text-color": "#eafffb",
+          "text-halo-color": "#04100d",
+          "text-halo-width": 1.5,
         },
       });
 
@@ -174,22 +290,35 @@ export default function CampusMap({
         event: maplibregl.MapLayerMouseEvent,
       ) => {
         const id = event.features?.[0]?.properties?.id;
-        if (typeof id === "string") {
-          onSelectRef.current(id);
+        const room = roomsRef.current.find((item) => item.id === id);
+        if (room) {
+          setInspectedBuilding(room.buildingCode);
+          onSelectRef.current(room.id);
           return;
         }
         const buildingCode = event.features?.[0]?.properties?.buildingCode;
         if (typeof buildingCode === "string") {
+          setInspectedBuilding(buildingCode);
           const firstRoom = roomsRef.current.find(
-            (room) => room.buildingCode === buildingCode,
+            (item) => item.buildingCode === buildingCode,
           );
           if (firstRoom) onSelectRef.current(firstRoom.id);
         }
       };
+      map.on("click", "room-glow-wide", selectFeature);
       map.on("click", "room-halo", selectFeature);
+      map.on("click", "room-core", selectFeature);
       map.on("click", "room-score", selectFeature);
       map.on("click", "sensemap-buildings-3d", selectFeature);
-      for (const layer of ["room-halo", "room-score", "sensemap-buildings-3d"]) {
+      map.on("click", "building-label", selectFeature);
+      for (const layer of [
+        "room-glow-wide",
+        "room-halo",
+        "room-core",
+        "room-score",
+        "sensemap-buildings-3d",
+        "building-label",
+      ]) {
         map.on("mouseenter", layer, () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -197,12 +326,22 @@ export default function CampusMap({
           map.getCanvas().style.cursor = "";
         });
       }
-    });
+      if (styleReadyInterval !== undefined) {
+        window.clearInterval(styleReadyInterval);
+        styleReadyInterval = undefined;
+      }
+    };
+    map.on("styledata", initializeSenseMapLayers);
+    map.on("load", initializeSenseMapLayers);
+    styleReadyInterval = window.setInterval(initializeSenseMapLayers, 250);
     map.on("error", (event) => {
       if (event.error?.message.includes("Failed to fetch")) setMapFailed(true);
     });
 
     return () => {
+      if (styleReadyInterval !== undefined) {
+        window.clearInterval(styleReadyInterval);
+      }
       map.remove();
       mapRef.current = null;
     };
@@ -217,16 +356,25 @@ export default function CampusMap({
       | undefined;
     source?.setData(points(visible, selectedId));
     if (map.getLayer("sensemap-buildings-3d")) {
+      const color = scoreColorExpression(rooms);
       map.setPaintProperty(
         "sensemap-buildings-3d",
         "fill-extrusion-color",
-        scoreColorExpression(rooms),
+        color,
       );
-      map.setFilter("sensemap-buildings-3d", [
-        "in",
-        ["get", "buildingCode"],
-        ["literal", [...new Set(visible.map((room) => room.buildingCode))]],
-      ]);
+      map.setPaintProperty("building-hologram-base", "line-color", color);
+      const visibleBuildings = [
+        ...new Set(visible.map((room) => room.buildingCode)),
+      ];
+      BUILDING_LAYER_IDS.forEach((layerId) => {
+        if (map.getLayer(layerId)) {
+          map.setFilter(layerId, [
+            "in",
+            ["get", "buildingCode"],
+            ["literal", visibleBuildings],
+          ]);
+        }
+      });
     }
   }, [rooms, selectedId, visibleRoomIds]);
 
@@ -241,6 +389,17 @@ export default function CampusMap({
     });
   }, [rooms, selectedId]);
 
+  const inspectedRooms = inspectedBuilding
+    ? rooms
+        .filter((room) => room.buildingCode === inspectedBuilding)
+        .sort((a, b) => a.floor - b.floor || a.roomNumber.localeCompare(b.roomNumber))
+    : [];
+  const inspectedName = inspectedRooms[0]?.building;
+  const inspectedCapacity = inspectedRooms.reduce(
+    (total, room) => total + room.capacity,
+    0,
+  );
+
   return (
     <div className="campus-map-shell">
       <div ref={containerRef} className="campus-map" aria-label="3D map of SFU Burnaby" />
@@ -250,10 +409,51 @@ export default function CampusMap({
         </div>
       )}
       <div className="map-legend" aria-label="Map legend">
-        <span><i className="legend-dot best" />Best fit</span>
-        <span><i className="legend-dot good" />Good fit</span>
-        <span><i className="legend-dot limited" />Limited</span>
+        <span><i className="legend-dot best" />Optimal</span>
+        <span><i className="legend-dot good" />Available</span>
+        <span><i className="legend-dot limited" />Busy</span>
+        <small>SFU footprint · estimated height</small>
       </div>
+      {inspectedBuilding && inspectedName && (
+        <section className="building-inspector" aria-label={`${inspectedName} rooms`}>
+          <div className="building-inspector-heading">
+            <div>
+              <span>{inspectedBuilding} · Building scan</span>
+              <strong>{inspectedName}</strong>
+              <small>
+                {inspectedRooms.length} {inspectedRooms.length === 1 ? "space" : "spaces"} ·{" "}
+                {inspectedCapacity} total seats
+              </small>
+            </div>
+            <button
+              type="button"
+              aria-label="Close building information"
+              onClick={() => setInspectedBuilding(null)}
+            >
+              ×
+            </button>
+          </div>
+          <div className="building-room-grid">
+            {inspectedRooms.map((room) => (
+              <button
+                type="button"
+                key={room.id}
+                className={room.id === selectedId ? "active" : ""}
+                onClick={() => onSelect(room.id)}
+              >
+                <span>
+                  <strong>{room.name}</strong>
+                  <small>
+                    Floor {room.floor} · {room.capacity} seats
+                    {room.outlets ? " · Outlets" : ""}
+                  </small>
+                </span>
+                <b>{room.reading.suitability_score}</b>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -62,19 +62,19 @@ INSERT INTO rooms (
   area_m2, capacity, hours, outlets, verification, data_note
 )
 VALUES
-  ('sub-2310', 'SUB Dining Area 2310', 'SUB', 'Student Union Building', 2, '2310', 49.27942, -122.92272, 278.7, 150, '9am–10pm', FALSE, 'listed', NULL),
-  ('sub-2330', 'SUB Public Lounge 2330', 'SUB', 'Student Union Building', 2, '2330', 49.27942, -122.92232, 92.9, 50, '9am–10pm', FALSE, 'listed', NULL),
-  ('sub-4210', 'SUB Public Lounge 4210', 'SUB', 'Student Union Building', 4, '4210', 49.27958, -122.92252, 92.9, 50, '9am–10pm', TRUE, 'listed', NULL),
-  ('sub-4215', 'SUB Public Lounge 4215', 'SUB', 'Student Union Building', 4, '4215', 49.27958, -122.92225, 44.6, 24, '9am–10pm', TRUE, 'listed', NULL),
-  ('sub-4100', 'SUB Public Lounge 4100', 'SUB', 'Student Union Building', 4, '4100', 49.27958, -122.92279, 18.6, 10, '9am–10pm', TRUE, 'listed', NULL),
-  ('sub-4300', 'SUB Public Lounge 4300', 'SUB', 'Student Union Building', 4, '4300', 49.27974, -122.92268, 37.2, 20, '9am–10pm', TRUE, 'listed', NULL),
-  ('sub-5300', 'SUB Public Lounge 5300', 'SUB', 'Student Union Building', 5, '5300', 49.27974, -122.92236, 92.9, 50, '9am–10pm', TRUE, 'listed', NULL),
-  ('aq-303', 'AQ Public Lounge 303', 'AQ', 'Academic Quadrangle', 3, '303', 49.27820, -122.91972, 130.1, 70, '9am–10pm', TRUE, 'listed', NULL),
-  ('wmc-1500', 'WMC Public Study Area 1500', 'WMC', 'West Mall Centre', 1, '1500', 49.27847, -122.92355, 92.9, 50, 'All day', TRUE, 'provisional', 'Confirm all-day access.'),
-  ('aq-3169', 'Mackenzie Café', 'AQ', 'Academic Quadrangle', 3, '3169', 49.27823, -122.91920, 130.1, 70, '8:30am–2:30pm', TRUE, 'provisional', 'Workbook room and hours require verification.'),
-  ('asb-9702', 'ASB Public Lounge 9702', 'ASB', 'Applied Sciences Building', 9, '9702', 49.27802, -122.91502, 27.9, 15, 'All day', TRUE, 'provisional', 'Floor and all-day access were inferred.'),
-  ('asb-9703', 'ASB Public Lounge 9703', 'ASB', 'Applied Sciences Building', 9, '9703', 49.27816, -122.91478, 27.9, 15, 'All day', TRUE, 'provisional', 'Capacity copied from adjacent room; verify capacity, floor, and access.'),
-  ('mbc-2270', 'Black Student Centre Lounge', 'MBC', 'Maggie Benston Centre', 2, '2270', 49.27915, -122.92145, 126.3, 68, 'All day', TRUE, 'provisional', 'Confirm all-day access.')
+  ('sub-2310', 'SUB Dining Area 2310', 'SUB', 'Student Union Building', 2, '2310', 49.2788064, -122.9185407, 278.7, 150, '9am–10pm', FALSE, 'listed', NULL),
+  ('sub-2330', 'SUB Public Lounge 2330', 'SUB', 'Student Union Building', 2, '2330', 49.2788064, -122.9183007, 92.9, 50, '9am–10pm', FALSE, 'listed', NULL),
+  ('sub-4210', 'SUB Public Lounge 4210', 'SUB', 'Student Union Building', 4, '4210', 49.2787064, -122.9185707, 92.9, 50, '9am–10pm', TRUE, 'listed', NULL),
+  ('sub-4215', 'SUB Public Lounge 4215', 'SUB', 'Student Union Building', 4, '4215', 49.2787064, -122.9182707, 44.6, 24, '9am–10pm', TRUE, 'listed', NULL),
+  ('sub-4100', 'SUB Public Lounge 4100', 'SUB', 'Student Union Building', 4, '4100', 49.2786064, -122.9185407, 18.6, 10, '9am–10pm', TRUE, 'listed', NULL),
+  ('sub-4300', 'SUB Public Lounge 4300', 'SUB', 'Student Union Building', 4, '4300', 49.2786064, -122.9183007, 37.2, 20, '9am–10pm', TRUE, 'listed', NULL),
+  ('sub-5300', 'SUB Public Lounge 5300', 'SUB', 'Student Union Building', 5, '5300', 49.2788864, -122.9184207, 92.9, 50, '9am–10pm', TRUE, 'listed', NULL),
+  ('aq-303', 'AQ Public Lounge 303', 'AQ', 'Academic Quadrangle', 3, '303', 49.2789603, -122.9175723, 130.1, 70, '9am–10pm', TRUE, 'listed', NULL),
+  ('wmc-1500', 'WMC Public Study Area 1500', 'WMC', 'West Mall Centre', 1, '1500', 49.279785842568984, -122.92228004067196, 92.9, 50, 'All day', TRUE, 'provisional', 'Confirm all-day access.'),
+  ('aq-3169', 'Mackenzie Café', 'AQ', 'Academic Quadrangle', 3, '3169', 49.2788603, -122.9173723, 130.1, 70, '8:30am–2:30pm', TRUE, 'provisional', 'Workbook room and hours require verification.'),
+  ('asb-9702', 'ASB Public Lounge 9702', 'ASB', 'Applied Sciences Building', 9, '9702', 49.2775538, -122.9149385, 27.9, 15, 'All day', TRUE, 'provisional', 'Floor and all-day access were inferred.'),
+  ('asb-9703', 'ASB Public Lounge 9703', 'ASB', 'Applied Sciences Building', 9, '9703', 49.2774338, -122.9148385, 27.9, 15, 'All day', TRUE, 'provisional', 'Capacity copied from adjacent room; verify capacity, floor, and access.'),
+  ('mbc-2270', 'Black Student Centre Lounge', 'MBC', 'Maggie Benston Centre', 2, '2270', 49.2787574, -122.9189221, 126.3, 68, 'All day', TRUE, 'provisional', 'Confirm all-day access.')
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   building_code = EXCLUDED.building_code,

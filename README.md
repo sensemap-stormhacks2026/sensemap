@@ -100,9 +100,11 @@ that metric uses the simulator and the payload quality reflects the change. Set
 
 The dashboard contains the 13 spaces supplied in
 `SFU_Burnaby_Study_Spots_Updated.xlsx`. Each room includes its building, floor,
-room number, listed hours, capacity, estimated area, outlet availability, and a
-verification label. The workbook is source material; the normalized catalog in
-`web/src/lib/rooms.ts` is what the running app uses.
+room number, listed hours, capacity, estimated area, outlet availability,
+coordinates, and a verification label. The workbook is source material; the
+normalized catalog in `web/src/lib/rooms.ts` is what the running app uses. Room
+dots use the workbook building coordinates with small offsets inside each
+footprint so rooms remain clickable instead of overlapping.
 
 Only the room containing the Pi is a live node. The other rooms receive clearly
 labelled demo readings so every marker and filter works during the presentation.
@@ -234,8 +236,10 @@ or venue-network failure.
 
 - Basemap © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
   and [OpenFreeMap](https://openfreemap.org/)
-- Demo footprints are approximate and based on
-  [SFU Facilities open mapping services](https://www.sfu.ca/fs/campus-maps/mapping-services.html)
+- Building outlines come from the
+  [SFU Facilities Vertisee Building Overview](https://viewsfu.its.sfu.ca/fsgis/rest/services/Vertisee/Vertisee_BuildingFloorplan_I_2020/MapServer/1).
+  Extrusion heights are prototype estimates because that service does not
+  publish authoritative 3D heights.
 - Wi-Fi counting limitations:
   [RateCount](https://arxiv.org/html/2507.03873v1)
 
