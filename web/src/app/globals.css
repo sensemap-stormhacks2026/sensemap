@@ -434,6 +434,15 @@ button:focus-visible {
     0 0 28px rgb(35 221 190 / 6%);
 }
 
+.map-loading {
+  align-items: center;
+  color: #7fd9cb;
+  display: flex;
+  font-size: 12px;
+  justify-content: center;
+  letter-spacing: 0.04em;
+}
+
 .campus-map-shell::after {
   background: repeating-linear-gradient(
     180deg,

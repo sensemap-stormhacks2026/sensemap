@@ -1,9 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import CampusMap from "./CampusMap";
+import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
 import type { RoomsResponse, RoomWithReading } from "@/lib/types";
+
+const CampusMap = dynamic(() => import("./CampusMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="campus-map-shell map-loading" aria-label="Loading campus map">
+      Loading campus map…
+    </div>
+  ),
+});
 
 type Filter = "all" | "quiet" | "uncrowded" | "outlets" | "live";
 type Recommendation = {
@@ -80,21 +90,35 @@ function statusText(metric: string, status: string) {
   return status[0].toUpperCase() + status.slice(1);
 }
 
-export default function SenseMapDashboard() {
-  const [data, setData] = useState<RoomsResponse | null>(null);
+export default function SenseMapDashboard({
+  initialData,
+}: {
+  initialData?: RoomsResponse;
+}) {
+  const [data, setData] = useState<RoomsResponse>(
+    initialData ?? createDemoSnapshot(),
+  );
   const [selectedId, setSelectedId] = useState("aq-303");
   const [filter, setFilter] = useState<Filter>("all");
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [apiError, setApiError] = useState(false);
 
   const loadRooms = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch("/api/rooms", { cache: "no-store" });
+      const response = await fetch("/api/rooms", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error("Unable to load room data");
       setData(await response.json());
       setApiError(false);
     } catch {
       setApiError(true);
+      setData((current) => current ?? createDemoSnapshot());
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, []);
 
@@ -145,12 +169,12 @@ export default function SenseMapDashboard() {
     (room) => room.reading.source !== "simulated" && !room.reading.stale,
   ).length;
 
-  if (!data) {
+  if (!data?.rooms?.length) {
     return (
       <main className="loading-screen">
         <div className="brand-mark">S</div>
         <p>Connecting to SenseMap…</p>
-        {apiError && <button onClick={loadRooms}>Retry connection</button>}
+        <button onClick={loadRooms}>Open demo rooms</button>
       </main>
     );
   }
