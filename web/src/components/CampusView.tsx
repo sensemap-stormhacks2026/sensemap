@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import CampusSketch from "./CampusSketch";
 import type { RoomWithReading } from "@/lib/types";
 
@@ -11,7 +11,7 @@ type CampusViewProps = {
   onSelect: (roomId: string) => void;
 };
 
-type MapComponent = (props: CampusViewProps) => JSX.Element;
+type MapComponent = ComponentType<CampusViewProps>;
 
 export default function CampusView(props: CampusViewProps) {
   const [MapImpl, setMapImpl] = useState<MapComponent | null>(null);
