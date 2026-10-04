@@ -7,7 +7,7 @@ The dashboard polls `GET /api/rooms` every 3 seconds.
 {
   "timestamp": "2026-10-03T21:00:00.000Z",
   "device_id": "pi-demo-01",
-  "room_id": "aq-3000",
+  "room_id": "aq-303",
   "lux": 52.1,
   "light_unit": "relative",
   "sound_level": 37.8,
@@ -27,6 +27,10 @@ is a calibrated relative 0–100 amplitude unless the microphone has been
 calibrated against a sound-level meter; it must not be presented as decibels.
 For BLE crowd estimates, only the aggregate advertiser count and calibrated
 people estimate leave the Pi; raw Bluetooth addresses are never retained.
+
+The demo catalog uses stable IDs such as `aq-303`, `sub-2310`, and `wmc-1500`.
+For compatibility during the hackathon, the ingestion API maps the older
+`aq-3000` ID to `aq-303`.
 
 MVP fallback rules:
 

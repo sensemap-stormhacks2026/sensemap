@@ -5,7 +5,7 @@ import CampusMap from "./CampusMap";
 import { scoreLabel } from "@/lib/scoring";
 import type { RoomsResponse, RoomWithReading } from "@/lib/types";
 
-type Filter = "all" | "quiet" | "cool" | "uncrowded";
+type Filter = "all" | "quiet" | "uncrowded" | "outlets" | "live";
 type Recommendation = {
   recommended_room: string;
   reason: string;
@@ -16,8 +16,9 @@ type Recommendation = {
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All spaces" },
   { id: "quiet", label: "Quiet" },
-  { id: "cool", label: "Comfortable" },
   { id: "uncrowded", label: "Uncrowded" },
+  { id: "outlets", label: "Outlets" },
+  { id: "live", label: "Live node" },
 ];
 
 function ageLabel(timestamp: string) {
@@ -55,7 +56,13 @@ function SourceBadge({ room }: { room: RoomWithReading }) {
   return (
     <span className={`source-badge ${stale ? "stale" : source}`}>
       <i />
-      {stale ? "Stale" : source === "live" ? "Live sensor" : source}
+      {stale
+        ? "Stale"
+        : source === "live"
+          ? "Live sensor"
+          : source === "estimated"
+            ? "Sensor + estimate"
+            : "Demo data"}
     </span>
   );
 }
@@ -75,7 +82,7 @@ function statusText(metric: string, status: string) {
 
 export default function SenseMapDashboard() {
   const [data, setData] = useState<RoomsResponse | null>(null);
-  const [selectedId, setSelectedId] = useState("aq-3000");
+  const [selectedId, setSelectedId] = useState("aq-303");
   const [filter, setFilter] = useState<Filter>("all");
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [apiError, setApiError] = useState(false);
@@ -121,8 +128,11 @@ export default function SenseMapDashboard() {
       rooms
         .filter((room) => {
           if (filter === "quiet") return room.reading.sound_status === "low";
-          if (filter === "cool") return room.reading.temperature_status === "moderate";
           if (filter === "uncrowded") return room.reading.crowd_status === "low";
+          if (filter === "outlets") return room.outlets;
+          if (filter === "live") {
+            return room.reading.source !== "simulated" && !room.reading.stale;
+          }
           return true;
         })
         .map((room) => room.id),
@@ -131,7 +141,9 @@ export default function SenseMapDashboard() {
   const sortedRooms = [...rooms].sort(
     (a, b) => b.reading.suitability_score - a.reading.suitability_score,
   );
-  const activeNodes = rooms.filter((room) => !room.reading.stale).length;
+  const activeNodes = rooms.filter(
+    (room) => room.reading.source !== "simulated" && !room.reading.stale,
+  ).length;
 
   if (!data) {
     return (
@@ -154,7 +166,10 @@ export default function SenseMapDashboard() {
           </div>
         </div>
         <div className="topbar-status">
-          <span className="network-status"><i />{activeNodes} nodes reporting</span>
+          <span className="network-status">
+            <i />
+            {activeNodes} live {activeNodes === 1 ? "node" : "nodes"} · {rooms.length} spaces
+          </span>
           <span className="storage-status">{data.storage === "tiger" ? "Tiger Data" : "Demo store"}</span>
           <span className="updated-time">Updated {ageLabel(data.generated_at)}</span>
         </div>
@@ -200,6 +215,7 @@ export default function SenseMapDashboard() {
                     <span className="room-tags">
                       <em>{statusText("sound", room.reading.sound_status)}</em>
                       <em>{Math.round(room.reading.crowd_ratio * 100)}% full</em>
+                      {room.outlets && <em>Outlets</em>}
                     </span>
                   </span>
                   <span className="room-arrow">›</span>
@@ -259,6 +275,28 @@ export default function SenseMapDashboard() {
                 <span><b>{scoreLabel(selected.reading.suitability_score)}</b>Study suitability</span>
               </div>
               <p className="freshness">Updated {ageLabel(selected.reading.timestamp)}</p>
+            </div>
+
+            <div className="space-facts">
+              <div>
+                <small>Room</small>
+                <strong>{selected.roomNumber}</strong>
+              </div>
+              <div>
+                <small>Listed hours</small>
+                <strong>{selected.hours}</strong>
+              </div>
+              <div>
+                <small>Power</small>
+                <strong>{selected.outlets ? "Outlets available" : "No outlets listed"}</strong>
+              </div>
+              <div>
+                <small>Room data</small>
+                <strong>
+                  {selected.verification === "listed" ? "Workbook listing" : "Provisional"}
+                </strong>
+              </div>
+              {selected.dataNote && <p>{selected.dataNote}</p>}
             </div>
 
             <div className="metrics">

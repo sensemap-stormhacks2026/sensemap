@@ -4,7 +4,7 @@
   "features": [
     {
       "type": "Feature",
-      "properties": { "id": "aq-3000", "name": "Academic Quadrangle", "height": 22 },
+      "properties": { "id": "aq", "buildingCode": "AQ", "name": "Academic Quadrangle", "height": 22 },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
@@ -16,19 +16,19 @@
     },
     {
       "type": "Feature",
-      "properties": { "id": "wac-bennett", "name": "W.A.C. Bennett Library", "height": 28 },
+      "properties": { "id": "wmc", "buildingCode": "WMC", "name": "West Mall Centre", "height": 22 },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
-          [-122.91873, 49.27887], [-122.91774, 49.27887],
-          [-122.91774, 49.27953], [-122.91873, 49.27953],
-          [-122.91873, 49.27887]
+          [-122.92405, 49.27812], [-122.92308, 49.27812],
+          [-122.92308, 49.27878], [-122.92405, 49.27878],
+          [-122.92405, 49.27812]
         ]]
       }
     },
     {
       "type": "Feature",
-      "properties": { "id": "asb-atrium", "name": "Applied Sciences Building", "height": 20 },
+      "properties": { "id": "asb", "buildingCode": "ASB", "name": "Applied Sciences Building", "height": 20 },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
@@ -40,13 +40,25 @@
     },
     {
       "type": "Feature",
-      "properties": { "id": "sub-lounge", "name": "Student Union Building", "height": 24 },
+      "properties": { "id": "sub", "buildingCode": "SUB", "name": "Student Union Building", "height": 24 },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
           [-122.92302, 49.27920], [-122.92202, 49.27920],
           [-122.92202, 49.27985], [-122.92302, 49.27985],
           [-122.92302, 49.27920]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "mbc", "buildingCode": "MBC", "name": "Maggie Benston Centre", "height": 18 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.92182, 49.27892], [-122.92108, 49.27892],
+          [-122.92108, 49.27938], [-122.92182, 49.27938],
+          [-122.92182, 49.27892]
         ]]
       }
     }

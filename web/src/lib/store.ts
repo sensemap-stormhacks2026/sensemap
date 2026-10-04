@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { ROOMS, getRoom } from "./rooms";
+import { canonicalRoomId, ROOMS, getRoom } from "./rooms";
 import { classifyReading } from "./scoring";
 import type {
   ReadingInput,
@@ -7,12 +7,10 @@ import type {
   RoomsResponse,
 } from "./types";
 
-const BASELINES = [
-  { lux: 430, sound: 30, temp: 21.4, people: 18 },
-  { lux: 360, sound: 44, temp: 22.2, people: 79 },
-  { lux: 610, sound: 69, temp: 24.8, people: 88 },
-  { lux: 285, sound: 57, temp: 20.6, people: 52 },
-];
+const SOUND_BASELINES = [48, 36, 31, 42, 28, 54, 38, 44, 34, 63, 29, 40, 46];
+const LIGHT_BASELINES = [58, 52, 64, 47, 55, 43, 61, 51, 66, 72, 45, 49, 57];
+const TEMP_BASELINES = [21.8, 21.2, 22.1, 21.5, 20.9, 22.4, 21.7, 21.9, 20.8, 23.2, 21.1, 22.0, 21.6];
+const CROWD_RATIOS = [0.58, 0.34, 0.28, 0.46, 0.2, 0.65, 0.4, 0.32, 0.24, 0.72, 0.27, 0.53, 0.38];
 
 type MemoryState = {
   latest: Map<string, ReadingInput>;
@@ -27,17 +25,26 @@ const globalStore = globalThis as typeof globalThis & {
 
 function simulatedReading(index: number): ReadingInput {
   const room = ROOMS[index];
-  const base = BASELINES[index];
+  const sound = SOUND_BASELINES[index] ?? 45;
+  const light = LIGHT_BASELINES[index] ?? 50;
+  const temp = TEMP_BASELINES[index] ?? 21.5;
+  const crowdRatio = CROWD_RATIOS[index] ?? 0.4;
   const tick = Date.now() / 10_000 + index * 1.7;
   return {
     timestamp: new Date().toISOString(),
     device_id: `demo-node-${index + 1}`,
     room_id: room.id,
-    lux: Math.round(base.lux + Math.sin(tick * 0.7) * 35),
-    light_unit: "lux",
-    sound_level: Math.round((base.sound + Math.sin(tick * 1.2) * 5) * 10) / 10,
-    temperature_c: Math.round((base.temp + Math.sin(tick * 0.15) * 0.5) * 10) / 10,
-    people_estimate: Math.max(0, Math.round(base.people + Math.sin(tick * 0.4) * 5)),
+    lux: Math.round((light + Math.sin(tick * 0.7) * 6) * 10) / 10,
+    light_unit: "relative",
+    sound_level: Math.round((sound + Math.sin(tick * 1.2) * 5) * 10) / 10,
+    temperature_c: Math.round((temp + Math.sin(tick * 0.15) * 0.5) * 10) / 10,
+    people_estimate: Math.max(
+      0,
+      Math.min(
+        room.capacity,
+        Math.round(room.capacity * crowdRatio + Math.sin(tick * 0.4) * 3),
+      ),
+    ),
     crowd_source: "simulated",
     crowd_devices_observed: 0,
     source: "simulated",
@@ -53,7 +60,9 @@ function memory(): MemoryState {
         ROOMS.map((room, index) => [
           room.id,
           Array.from({ length: 16 }, (_, point) =>
-            Math.round(BASELINES[index].sound + Math.sin(point * 0.65 + index) * 8),
+            Math.round(
+              (SOUND_BASELINES[index] ?? 45) + Math.sin(point * 0.65 + index) * 8,
+            ),
           ),
         ]),
       ),
@@ -80,36 +89,63 @@ function pool(): Pool | null {
 export async function saveReading(reading: ReadingInput): Promise<"tiger" | "demo"> {
   const room = getRoom(reading.room_id);
   if (!room) throw new Error(`Unknown room: ${reading.room_id}`);
+  const canonicalReading = {
+    ...reading,
+    room_id: canonicalRoomId(reading.room_id),
+  };
 
   const state = memory();
-  state.latest.set(reading.room_id, reading);
-  state.received.add(reading.room_id);
-  const history = state.histories.get(reading.room_id) ?? [];
+  state.latest.set(canonicalReading.room_id, canonicalReading);
+  state.received.add(canonicalReading.room_id);
+  const history = state.histories.get(canonicalReading.room_id) ?? [];
   state.histories.set(
-    reading.room_id,
-    [...history.slice(-15), Math.round(reading.sound_level)],
+    canonicalReading.room_id,
+    [...history.slice(-15), Math.round(canonicalReading.sound_level)],
   );
 
   const db = pool();
   if (!db) return "demo";
+  await db.query(
+    `INSERT INTO rooms
+      (id, name, building, floor, latitude, longitude, area_m2, capacity)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       building = EXCLUDED.building,
+       floor = EXCLUDED.floor,
+       latitude = EXCLUDED.latitude,
+       longitude = EXCLUDED.longitude,
+       area_m2 = EXCLUDED.area_m2,
+       capacity = EXCLUDED.capacity`,
+    [
+      room.id,
+      room.name,
+      room.building,
+      room.floor,
+      room.latitude,
+      room.longitude,
+      room.areaM2,
+      room.capacity,
+    ],
+  );
   await db.query(
     `INSERT INTO readings
       (time, device_id, room_id, lux, light_unit, sound_level, temperature_c,
        people_estimate, crowd_source, crowd_devices_observed, source, quality)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [
-      reading.timestamp,
-      reading.device_id,
-      reading.room_id,
-      reading.lux,
-      reading.light_unit,
-      reading.sound_level,
-      reading.temperature_c,
-      reading.people_estimate,
-      reading.crowd_source,
-      reading.crowd_devices_observed,
-      reading.source,
-      reading.quality,
+      canonicalReading.timestamp,
+      canonicalReading.device_id,
+      canonicalReading.room_id,
+      canonicalReading.lux,
+      canonicalReading.light_unit,
+      canonicalReading.sound_level,
+      canonicalReading.temperature_c,
+      canonicalReading.people_estimate,
+      canonicalReading.crowd_source,
+      canonicalReading.crowd_devices_observed,
+      canonicalReading.source,
+      canonicalReading.quality,
     ],
   );
   return "tiger";

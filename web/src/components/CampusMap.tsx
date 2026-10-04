@@ -13,7 +13,10 @@ type CampusMapProps = {
   onSelect: (roomId: string) => void;
 };
 
-function points(rooms: RoomWithReading[]): GeoJSON.FeatureCollection {
+function points(
+  rooms: RoomWithReading[],
+  selectedId: string,
+): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: rooms.map((room) => ({
@@ -22,6 +25,7 @@ function points(rooms: RoomWithReading[]): GeoJSON.FeatureCollection {
         id: room.id,
         name: room.shortName,
         score: room.reading.suitability_score,
+        selected: room.id === selectedId,
       },
       geometry: {
         type: "Point",
@@ -34,13 +38,20 @@ function points(rooms: RoomWithReading[]): GeoJSON.FeatureCollection {
 function scoreColorExpression(
   rooms: RoomWithReading[],
 ): maplibregl.ExpressionSpecification {
-  const expression: unknown[] = ["match", ["get", "id"]];
+  const groupedScores = new Map<string, number[]>();
   rooms.forEach((room) => {
+    const scores = groupedScores.get(room.buildingCode) ?? [];
+    scores.push(room.reading.suitability_score);
+    groupedScores.set(room.buildingCode, scores);
+  });
+  const expression: unknown[] = ["match", ["get", "buildingCode"]];
+  groupedScores.forEach((scores, buildingCode) => {
+    const score = scores.reduce((sum, item) => sum + item, 0) / scores.length;
     expression.push(
-      room.id,
-      room.reading.suitability_score >= 75
+      buildingCode,
+      score >= 75
         ? "#b8f34b"
-        : room.reading.suitability_score >= 55
+        : score >= 55
           ? "#f4c65b"
           : "#ff7369",
     );
@@ -58,12 +69,17 @@ export default function CampusMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const roomsRef = useRef(rooms);
+  const selectedIdRef = useRef(selectedId);
   const onSelectRef = useRef(onSelect);
   const [mapFailed, setMapFailed] = useState(false);
 
   useEffect(() => {
     roomsRef.current = rooms;
   }, [rooms]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -122,18 +138,18 @@ export default function CampusMap({
 
       map.addSource("sensemap-rooms", {
         type: "geojson",
-        data: points(roomsRef.current),
+        data: points(roomsRef.current, selectedIdRef.current),
       });
       map.addLayer({
         id: "room-halo",
         type: "circle",
         source: "sensemap-rooms",
         paint: {
-          "circle-radius": 19,
-          "circle-color": "#07110d",
-          "circle-opacity": 0.82,
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#dfffc1",
+          "circle-radius": ["case", ["get", "selected"], 21, 17],
+          "circle-color": ["case", ["get", "selected"], "#1d2d12", "#07110d"],
+          "circle-opacity": 0.9,
+          "circle-stroke-width": ["case", ["get", "selected"], 3, 1.5],
+          "circle-stroke-color": ["case", ["get", "selected"], "#b8f34b", "#dfffc1"],
         },
       });
       map.addLayer({
@@ -158,7 +174,17 @@ export default function CampusMap({
         event: maplibregl.MapLayerMouseEvent,
       ) => {
         const id = event.features?.[0]?.properties?.id;
-        if (typeof id === "string") onSelectRef.current(id);
+        if (typeof id === "string") {
+          onSelectRef.current(id);
+          return;
+        }
+        const buildingCode = event.features?.[0]?.properties?.buildingCode;
+        if (typeof buildingCode === "string") {
+          const firstRoom = roomsRef.current.find(
+            (room) => room.buildingCode === buildingCode,
+          );
+          if (firstRoom) onSelectRef.current(firstRoom.id);
+        }
       };
       map.on("click", "room-halo", selectFeature);
       map.on("click", "room-score", selectFeature);
@@ -189,7 +215,7 @@ export default function CampusMap({
     const source = map.getSource("sensemap-rooms") as
       | maplibregl.GeoJSONSource
       | undefined;
-    source?.setData(points(visible));
+    source?.setData(points(visible, selectedId));
     if (map.getLayer("sensemap-buildings-3d")) {
       map.setPaintProperty(
         "sensemap-buildings-3d",
@@ -198,11 +224,11 @@ export default function CampusMap({
       );
       map.setFilter("sensemap-buildings-3d", [
         "in",
-        ["get", "id"],
-        ["literal", [...visibleRoomIds]],
+        ["get", "buildingCode"],
+        ["literal", [...new Set(visible.map((room) => room.buildingCode))]],
       ]);
     }
-  }, [rooms, visibleRoomIds]);
+  }, [rooms, selectedId, visibleRoomIds]);
 
   useEffect(() => {
     const room = rooms.find((item) => item.id === selectedId);

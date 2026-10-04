@@ -11,7 +11,7 @@ Built for StormHacks 2026.
 
 ## What works
 
-- Interactive pitched 3D campus map with four demo study spaces
+- Interactive pitched 3D campus map with 13 workbook-backed study spaces
 - Live Raspberry Pi ingestion every 2–5 seconds
 - BH1750, DHT22, and MCP3008 sound-module support with per-sensor fallback
 - Transparent Low / Moderate / High environmental classifications
@@ -63,7 +63,7 @@ From the repository root:
 ```bash
 python sensor/agent.py --simulate --once
 python sensor/agent.py --simulate \
-  --endpoint http://YOUR_LAPTOP_IP:3000/api/readings
+  --endpoint http://YOUR_LAPTOP_IP:3001/api/readings
 ```
 
 The default development token is `sensemap-demo-token`. Set the same secure
@@ -95,6 +95,19 @@ Use `SENSEMAP_SENSOR_PROFILE=grove`, `GROVE_LIGHT_CHANNEL=0`, and
 `GROVE_SOUND_CHANNEL=2` for the StormHacks node. If any sensor is absent, only
 that metric uses the simulator and the payload quality reflects the change. Set
 `SENSEMAP_TEMPERATURE_MODE=simulated` when no temperature sensor is connected.
+
+### Study-space catalog
+
+The dashboard contains the 13 spaces supplied in
+`SFU_Burnaby_Study_Spots_Updated.xlsx`. Each room includes its building, floor,
+room number, listed hours, capacity, estimated area, outlet availability, and a
+verification label. The workbook is source material; the normalized catalog in
+`web/src/lib/rooms.ts` is what the running app uses.
+
+Only the room containing the Pi is a live node. The other rooms receive clearly
+labelled demo readings so every marker and filter works during the presentation.
+Areas were estimated from capacity and are not official measurements. ASB floors,
+ASB 9703 capacity, all-day access, and Mackenzie Café details remain provisional.
 
 ## Tiger Data
 
@@ -168,8 +181,32 @@ npx vercel
 ```
 
 Set the project root to `web` and add `DATABASE_URL`, `DEVICE_TOKEN`, and
-optionally `GEMINI_API_KEY`. For a local-network demo, run `npm run dev -- -H
-0.0.0.0` and point the Pi agent at the laptop's LAN address.
+optionally `GEMINI_API_KEY`.
+
+For the current local-network demo, run the dashboard on the laptop:
+
+```bash
+cd web
+npm run dev -- -H 0.0.0.0 -p 3001
+```
+
+Then run the Pi node:
+
+```bash
+cd ~/sensemap
+source .venv/bin/activate
+export SENSEMAP_ENDPOINT=http://10.42.0.1:3001/api/readings
+export SENSEMAP_ROOM_ID=aq-303
+export SENSEMAP_TEMPERATURE_MODE=simulated
+export SENSEMAP_CROWD_MODE=ble
+export BLE_SCAN_WINDOW=60
+export BLE_MIN_RSSI=-65
+export BLE_PEOPLE_FACTOR=0.8
+python sensor/agent.py
+```
+
+Replace `10.42.0.1` if the laptop has a different address. The API continues
+to accept the previous `aq-3000` room ID and maps it to `aq-303`.
 
 ## Three-minute demo script
 

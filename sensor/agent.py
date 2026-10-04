@@ -280,7 +280,7 @@ class Reading:
 class SensorNode:
     def __init__(self, simulate: bool = False) -> None:
         self.device_id = os.getenv("SENSEMAP_DEVICE_ID", "pi-demo-01")
-        self.room_id = os.getenv("SENSEMAP_ROOM_ID", "aq-3000")
+        self.room_id = os.getenv("SENSEMAP_ROOM_ID", "aq-303")
         self.people = int(os.getenv("SENSEMAP_PEOPLE", "18"))
         self.readers: dict[str, Reader] = {}
         self.crowd_reader: BLECrowdReader | None = None

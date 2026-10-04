@@ -20,12 +20,18 @@ export interface Room {
   id: string;
   name: string;
   shortName: string;
+  buildingCode: string;
   building: string;
   floor: number;
+  roomNumber: string;
   latitude: number;
   longitude: number;
   areaM2: number;
   capacity: number;
+  hours: string;
+  outlets: boolean;
+  verification: "listed" | "provisional";
+  dataNote?: string;
 }
 
 export interface RoomReading extends ReadingInput {

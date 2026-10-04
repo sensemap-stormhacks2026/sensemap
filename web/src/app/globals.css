@@ -628,6 +628,45 @@ button:focus-visible {
   margin: 11px 0 0 63px;
 }
 
+.space-facts {
+  background: #0d1713;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1fr 1fr;
+  padding: 12px;
+}
+
+.space-facts > div {
+  background: #111d18;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 54px;
+  padding: 9px 10px;
+}
+
+.space-facts small {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.space-facts strong {
+  color: #c9d4ce;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.space-facts > p {
+  color: #bda96f;
+  font-size: 8px;
+  grid-column: 1 / -1;
+  line-height: 1.5;
+  margin: 7px 3px 1px;
+}
+
 .metrics {
   display: grid;
   gap: 1px;
