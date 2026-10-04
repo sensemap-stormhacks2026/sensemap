@@ -4,15 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CampusMap from "./CampusMap";
 import { createDemoSnapshot } from "@/lib/demo-snapshot";
 import { scoreLabel } from "@/lib/scoring";
-import type { RoomsResponse, RoomWithReading } from "@/lib/types";
+import type { RoomsResponse } from "@/lib/types";
 
 type Filter = "all" | "quiet" | "cool" | "uncrowded" | "outlets" | "live";
-type Recommendation = {
-  recommended_room: string;
-  reason: string;
-  caveat: string;
-  powered_by: "gemini" | "deterministic";
-};
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All spaces" },
@@ -23,7 +17,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "live", label: "Live node" },
 ];
 
-const OTHER_PREVIEW_COUNT = 2;
+const ROOM_PREVIEW_COUNT = 4;
 
 function ageLabel(timestamp: string) {
   const seconds = Math.max(
@@ -52,44 +46,6 @@ function scoreTone(score: number) {
   return scoreLabel(score).toLowerCase().replace(" ", "-");
 }
 
-function ScoreMeter({ score }: { score: number }) {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  return (
-    <div className={`score-meter score-${scoreTone(score)}`} aria-label={`Suitability ${score}`}>
-      <svg viewBox="0 0 64 64">
-        <circle className="track" cx="32" cy="32" r={radius} />
-        <circle
-          className="value"
-          cx="32"
-          cy="32"
-          r={radius}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <strong>{score}</strong>
-    </div>
-  );
-}
-
-function SourceBadge({ room }: { room: RoomWithReading }) {
-  const { source, stale } = room.reading;
-  return (
-    <span className={`source-badge ${stale ? "stale" : source}`}>
-      <i />
-      {stale
-        ? "Stale"
-        : source === "live"
-          ? "Live sensor"
-          : source === "estimated"
-            ? "Sensor + estimate"
-            : "Demo data"}
-    </span>
-  );
-}
-
 export default function SenseMapDashboard({
   initialData,
 }: {
@@ -101,8 +57,6 @@ export default function SenseMapDashboard({
   const [selectedId, setSelectedId] = useState("aq-303");
   const [filter, setFilter] = useState<Filter>("all");
   const [listExpanded, setListExpanded] = useState(false);
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
-  const [guideRoomId, setGuideRoomId] = useState<string | null>(null);
   const [apiError, setApiError] = useState(false);
   const mapSectionRef = useRef<HTMLElement>(null);
 
@@ -125,28 +79,16 @@ export default function SenseMapDashboard({
     }
   }, []);
 
-  const loadRecommendation = useCallback(async () => {
-    try {
-      const response = await fetch("/api/recommend", { cache: "no-store" });
-      if (response.ok) setRecommendation(await response.json());
-    } catch {
-      // The transparent deterministic room ranking remains visible.
-    }
-  }, []);
-
   useEffect(() => {
     const kickoff = window.setTimeout(() => {
       void loadRooms();
-      void loadRecommendation();
     }, 0);
     const interval = window.setInterval(loadRooms, 3_000);
-    const recommendationInterval = window.setInterval(loadRecommendation, 30_000);
     return () => {
       window.clearTimeout(kickoff);
       window.clearInterval(interval);
-      window.clearInterval(recommendationInterval);
     };
-  }, [loadRecommendation, loadRooms]);
+  }, [loadRooms]);
 
   const rooms = useMemo(() => data?.rooms ?? [], [data]);
   const selected = rooms.find((room) => room.id === selectedId) ?? rooms[0];
@@ -173,32 +115,10 @@ export default function SenseMapDashboard({
         .sort((a, b) => b.reading.suitability_score - a.reading.suitability_score),
     [rooms, visibleRoomIds],
   );
-  useEffect(() => {
-    const match = recommendation
-      ? rooms.find(
-          (room) =>
-            room.name === recommendation.recommended_room ||
-            room.shortName === recommendation.recommended_room,
-        )
-      : null;
-    if (match) {
-      setGuideRoomId(match.id);
-      return;
-    }
-    if (!guideRoomId && filteredRooms[0]) {
-      setGuideRoomId(filteredRooms[0].id);
-    }
-  }, [filteredRooms, guideRoomId, recommendation, rooms]);
-
-  const recommendedRoom =
-    rooms.find((room) => room.id === guideRoomId) ??
-    filteredRooms[0] ??
-    rooms[0];
-  const otherRooms = filteredRooms.filter((room) => room.id !== selected?.id);
-  const visibleOtherRooms = listExpanded
-    ? otherRooms
-    : otherRooms.slice(0, OTHER_PREVIEW_COUNT);
-  const hiddenCount = Math.max(0, otherRooms.length - OTHER_PREVIEW_COUNT);
+  const visibleRooms = listExpanded
+    ? filteredRooms
+    : filteredRooms.slice(0, ROOM_PREVIEW_COUNT);
+  const hiddenCount = Math.max(0, filteredRooms.length - ROOM_PREVIEW_COUNT);
   const activeNodes = rooms.filter(
     (room) => room.reading.source !== "simulated" && !room.reading.stale,
   ).length;
@@ -210,7 +130,6 @@ export default function SenseMapDashboard({
 
   const chooseRoom = (roomId: string) => {
     setSelectedId(roomId);
-    if (!window.matchMedia("(max-width: 979px)").matches) return;
     window.requestAnimationFrame(() => {
       mapSectionRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -221,10 +140,11 @@ export default function SenseMapDashboard({
 
   if (!data?.rooms?.length) {
     return (
-      <main className="loading-screen">
-        <div className="brand-mark">S</div>
-        <p>Connecting to SenseMap…</p>
-        <button onClick={loadRooms}>Open demo rooms</button>
+      <main className="app-shell">
+        <div className="loading-screen">
+          <p>Connecting to SenseMap…</p>
+          <button onClick={loadRooms}>Open demo rooms</button>
+        </div>
       </main>
     );
   }
@@ -233,50 +153,20 @@ export default function SenseMapDashboard({
     <main className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">S</div>
-          <div>
-            <h1>SenseMap</h1>
-            <p>SFU Burnaby · Live study conditions</p>
-          </div>
-        </div>
-        <div className="topbar-status">
-          <span className="live-pill">
-            <i />
-            Live
-          </span>
-          <span className="network-status">
-            {activeNodes} {activeNodes === 1 ? "node" : "nodes"} · {rooms.length} spaces
-          </span>
+          <h1>SenseMap</h1>
         </div>
       </header>
 
       <div className="page-stack">
-        <section className="hero-card">
-          <div className="hero-copy">
-            <p className="eyebrow">Find your focus</p>
-            <h2>
-              {filteredRooms.length} matching {filteredRooms.length === 1 ? "space" : "spaces"} right now
-            </h2>
-            <p>
-              {recommendation?.reason ??
-                `${recommendedRoom.name} is the current best fit from live and demo conditions.`}
-            </p>
-            <small>
-              {recommendation?.caveat ?? "Scores weigh sound, crowd, temperature, and light."}
-            </small>
+        <section className="list-card">
+          <div className="list-heading">
+            <div>
+              <p className="eyebrow">Find your focus</p>
+              <h2>{filteredRooms.length} spaces</h2>
+            </div>
           </div>
-          <button
-            type="button"
-            className="hero-select"
-            onClick={() => chooseRoom(recommendedRoom.id)}
-          >
-            Select {recommendedRoom.shortName}
-          </button>
-        </section>
 
-        <section className="filter-card" aria-label="Filter study spaces">
-          <p className="section-kicker">Choose a condition</p>
-          <div className="filters">
+          <div className="filters" aria-label="Filter study spaces">
             {FILTERS.map((item) => (
               <button
                 key={item.id}
@@ -288,15 +178,54 @@ export default function SenseMapDashboard({
               </button>
             ))}
           </div>
+
+          <div className="room-list">
+            {visibleRooms.map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                className={`room-card ${selected?.id === room.id ? "selected" : ""}`}
+                onClick={() => chooseRoom(room.id)}
+              >
+                <span className={`score-ring score-${scoreTone(room.reading.suitability_score)}`}>
+                  {room.reading.suitability_score}
+                </span>
+                <span className="room-copy">
+                  <strong>{room.name}</strong>
+                  <small>
+                    {room.building} · Floor {room.floor}
+                  </small>
+                  <span className="room-tags">
+                    <em className={`tone-${room.reading.sound_status}`}>
+                      {statusText("sound", room.reading.sound_status)}
+                    </em>
+                    <em>{Math.round(room.reading.crowd_ratio * 100)}% full</em>
+                    {room.outlets && <em>Outlets</em>}
+                  </span>
+                </span>
+                <span className="room-arrow">›</span>
+              </button>
+            ))}
+            {visibleRoomIds.size === 0 && (
+              <div className="empty-filter">No spaces match this filter right now.</div>
+            )}
+          </div>
+
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              className="list-toggle"
+              onClick={() => setListExpanded((open) => !open)}
+            >
+              {listExpanded ? "Show less" : `Show ${hiddenCount} more`}
+            </button>
+          )}
         </section>
 
         <section className="map-card" ref={mapSectionRef} id="campus-map">
           <div className="map-title">
-            <div>
-              <span className="live-pulse"><i />Campus map</span>
-              <h2>Burnaby live conditions</h2>
-            </div>
-            {selected && <p>Showing {selected.shortName}</p>}
+            <h2>Campus map</h2>
+            {selected && <p>{selected.shortName}</p>}
           </div>
           <CampusMap
             rooms={rooms}
@@ -312,7 +241,6 @@ export default function SenseMapDashboard({
         {selected && (
           <section className="focus-card" id="room-details">
             <div className="focus-topline">
-              <SourceBadge room={selected} />
               <span className="freshness">Updated {ageLabel(selected.reading.timestamp)}</span>
             </div>
             <div className="focus-heading">
@@ -324,12 +252,9 @@ export default function SenseMapDashboard({
                   {selected.outlets ? " · Outlets" : ""}
                 </p>
               </div>
-              <div className="focus-score">
-                <ScoreMeter score={selected.reading.suitability_score} />
-                <span>
-                  <b>{scoreLabel(selected.reading.suitability_score)}</b>
-                  Study match
-                </span>
+              <div className={`focus-score score-${scoreTone(selected.reading.suitability_score)}`}>
+                <strong>{selected.reading.suitability_score}</strong>
+                <span>{scoreLabel(selected.reading.suitability_score)}</span>
               </div>
             </div>
 
@@ -369,7 +294,7 @@ export default function SenseMapDashboard({
 
             <div className="occupancy-row">
               <div>
-                <small>Occupancy estimate</small>
+                <small>Occupancy</small>
                 <strong>{Math.round(selected.reading.crowd_ratio * 100)}% full</strong>
               </div>
               <div className="capacity-track">
@@ -383,47 +308,14 @@ export default function SenseMapDashboard({
             </p>
           </section>
         )}
-
-        <section className="other-card">
-          <div className="other-heading">
-            <div>
-              <p className="section-kicker">Other spaces</p>
-              <h3>{otherRooms.length} more {otherRooms.length === 1 ? "match" : "matches"}</h3>
-            </div>
-            {hiddenCount > 0 && (
-              <button type="button" className="list-toggle" onClick={() => setListExpanded((open) => !open)}>
-                {listExpanded ? "Show fewer" : `View all ${otherRooms.length}`}
-              </button>
-            )}
-          </div>
-
-          <div className="room-list">
-            {visibleOtherRooms.map((room) => (
-              <button
-                key={room.id}
-                type="button"
-                className="room-card"
-                onClick={() => chooseRoom(room.id)}
-              >
-                <span className={`score-ring score-${scoreTone(room.reading.suitability_score)}`}>
-                  {room.reading.suitability_score}
-                </span>
-                <span className="room-copy">
-                  <strong>{room.name}</strong>
-                  <small>
-                    {room.shortName} · {statusText("sound", room.reading.sound_status)} ·{" "}
-                    {Math.round(room.reading.crowd_ratio * 100)}% full
-                  </small>
-                </span>
-                <span className="select-chip">Select</span>
-              </button>
-            ))}
-            {visibleRoomIds.size === 0 && (
-              <div className="empty-filter">No spaces match this filter right now.</div>
-            )}
-          </div>
-        </section>
       </div>
+
+      <footer className="app-footer">
+        <span>SFU Burnaby</span>
+        <span>
+          {activeNodes} live {activeNodes === 1 ? "node" : "nodes"} · {rooms.length} spaces
+        </span>
+      </footer>
     </main>
   );
 }
