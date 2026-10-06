@@ -9,6 +9,9 @@ spaces are quiet, comfortable, well lit, and available.
 
 Built for StormHacks 2026.
 
+[![Watch the video](https://youtu.be/3yypkkRLDLw?si=qmggN0L5ZNBuV6jB)](https://youtu.be/3yypkkRLDLw?si=qmggN0L5ZNBuV6jB)
+
+
 ## What works
 
 - Interactive pitched 3D campus map with 13 workbook-backed study spaces
